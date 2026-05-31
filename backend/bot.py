@@ -665,6 +665,17 @@ def handle_update(update: dict):
                     logger.error("news error: %s", e)
                     send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
 
+        # ── /배당 ────────────────────────────────────
+        elif cmd in ["/배당", "/dividend", "/배당주"]:
+            send(chat_id, "💰 고배당 종목 스캔 중... (약 10초)")
+            try:
+                from stock_analyzer import analyze_dividend_stocks
+                result = analyze_dividend_stocks()
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("dividend error: %s", e)
+                send(chat_id, "배당 분석 중 오류가 발생했어요.")
+
         # ── /52주 ────────────────────────────────────
         elif cmd in ["/52주", "/52week", "/고저가"]:
             send(chat_id, "📊 52주 신고가/신저가 종목 스캔 중...")
