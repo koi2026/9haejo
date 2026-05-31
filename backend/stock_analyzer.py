@@ -966,3 +966,104 @@ Data: {', '.join(ai_data[:6])}"""
     result = "\n".join(lines) + "\n\n" + ai + "\n\n<i>*배당 투자는 장기 보유 기준. 세금 고려 필수*</i>"
     quote_cache.set(cache_key, result)
     return result
+
+
+# ── 모멘텀 스크리너 ─────────────────────────────────────────────
+MOMENTUM_UNIVERSE = [
+    "NVDA","AAPL","MSFT","GOOGL","AMZN","META","TSLA","AMD","AVGO","ORCL",
+    "PLTR","ARM","SMCI","MSTR","COIN","RBLX","SNAP","UBER","LYFT","ABNB",
+    "SHOP","CRWD","PANW","SNOW","DDOG","ZS","NET","OKTA","MDB","GTLB",
+]
+
+
+def analyze_momentum() -> str:
+    """모멘텀 스크리너: RSI + MA 돌파 + 거래량 급증"""
+    import yfinance as yf
+    import numpy as np
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from cache import quote_cache
+
+    cache_key = "momentum_scan"
+    cached = quote_cache.get(cache_key)
+    if cached:
+        return cached
+
+    def compute_rsi(closes: list, period: int = 14) -> float:
+        if len(closes) < period + 1:
+            return 50.0
+        deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+        gains = [d if d > 0 else 0 for d in deltas[-period:]]
+        losses = [-d if d < 0 else 0 for d in deltas[-period:]]
+        avg_gain = sum(gains) / period
+        avg_loss = sum(losses) / period
+        if avg_loss == 0:
+            return 100.0
+        rs = avg_gain / avg_loss
+        return round(100 - 100 / (1 + rs), 1)
+
+    def scan_stock(sym: str):
+        try:
+            hist = yf.Ticker(sym).history(period="60d")
+            if hist.empty or len(hist) < 25:
+                return sym, None
+            closes = hist["Close"].tolist()
+            volumes = hist["Volume"].tolist()
+            curr = closes[-1]
+            prev = closes[-2]
+            pct = (curr - prev) / prev * 100
+            ma20 = sum(closes[-20:]) / 20
+            ma50 = sum(closes[-50:]) / min(50, len(closes))
+            vol_avg = sum(volumes[-20:]) / 20
+            vol_curr = volumes[-1]
+            vol_ratio = vol_curr / vol_avg if vol_avg > 0 else 1
+            rsi = compute_rsi(closes)
+            above_ma = curr > ma20
+            vol_spike = vol_ratio > 1.5
+            # 모멘텀 점수
+            score = 0
+            if rsi >= 50 and rsi <= 75: score += 2
+            if rsi > 75: score -= 1  # 과매수
+            if above_ma: score += 2
+            if curr > ma50: score += 1
+            if vol_spike: score += 2
+            if pct > 0: score += 1
+            return sym, {"price": round(curr, 2), "pct": round(pct, 2), "rsi": rsi,
+                         "above_ma": above_ma, "vol_ratio": round(vol_ratio, 1), "score": score}
+        except Exception:
+            return sym, None
+
+    results = {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(scan_stock, s): s for s in MOMENTUM_UNIVERSE}
+        for f in as_completed(futures):
+            sym, d = f.result()
+            if d:
+                results[sym] = d
+
+    sorted_stocks = sorted(results.items(), key=lambda x: x[1]["score"], reverse=True)
+    top = sorted_stocks[:8]
+    bottom = sorted_stocks[-3:]
+
+    lines = ["<b>🚀 모멘텀 스크리너</b>\n"]
+    lines.append("<b>강한 모멘텀 (매수 관심):</b>")
+    for sym, d in top[:5]:
+        vol_tag = f" 거래량{d['vol_ratio']:.1f}x" if d["vol_ratio"] > 1.5 else ""
+        ma_tag = " MA위" if d["above_ma"] else " MA아래"
+        lines.append(f"  <b>{sym}</b> {'+' if d['pct']>=0 else ''}{d['pct']:.2f}% | RSI {d['rsi']}{ma_tag}{vol_tag}")
+
+    lines.append("\n<b>약한 모멘텀 (주의):</b>")
+    for sym, d in bottom:
+        lines.append(f"  {sym} {'+' if d['pct']>=0 else ''}{d['pct']:.2f}% | RSI {d['rsi']}")
+
+    top_syms = [s for s, _ in top[:3]]
+    top_data = {s: results[s] for s in top_syms}
+    prompt = f"""You are a momentum trading expert for Korean retail investors.
+Briefly analyze in Korean (max 350 chars):
+Which of {', '.join(top_syms)} has the best momentum setup right now? Give a specific 1-line reason each + overall "지금 모멘텀 장세인가?" judgment.
+Korean only.
+Data: {', '.join(f"{s} RSI{top_data[s]['rsi']} vol{top_data[s]['vol_ratio']}x" for s in top_syms)}"""
+
+    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=400)
+    result = "\n".join(lines) + "\n\n" + ai + "\n\n<i>*스크리너는 참고용. 손절선 설정 필수*</i>"
+    quote_cache.set(cache_key, result)
+    return result
