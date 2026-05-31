@@ -384,6 +384,49 @@ def stock_history(ticker: str, days: int = 7):
         return {"error": str(e), "ticker": ticker}
 
 
+@app.get("/market/trending")
+def market_trending():
+    """뉴스 언급량 기반 트렌딩 종목 (5개, 10분 캐시)"""
+    from cache import news_cache
+    from collector import av_news_sentiment, yf_quote
+    cached = news_cache.get("trending_stocks")
+    if cached:
+        return cached
+    news = av_news_sentiment()
+    if not news:
+        return {"tickers": []}
+    # 티커 언급 집계
+    from collections import Counter
+    ticker_counts: Counter = Counter()
+    ticker_sentiments: dict = {}
+    for item in news:
+        for ts in item.get("ticker_sentiment", []):
+            sym = ts.get("ticker", "")
+            if sym and len(sym) <= 5 and sym.isalpha():
+                ticker_counts[sym] += 1
+                s = float(ts.get("ticker_sentiment_score", 0))
+                ticker_sentiments.setdefault(sym, []).append(s)
+    # 상위 5개 + 시세 조회
+    top = [sym for sym, _ in ticker_counts.most_common(8) if sym not in ("N/A", "")][:8]
+    tickers_out = []
+    for sym in top:
+        q = yf_quote(sym)
+        if q:
+            avg_sent = sum(ticker_sentiments.get(sym, [0])) / max(len(ticker_sentiments.get(sym, [1])), 1)
+            tickers_out.append({
+                "ticker": sym,
+                "price": q["price"],
+                "change_pct": q["change_pct"],
+                "mentions": ticker_counts[sym],
+                "sentiment_score": round(avg_sent, 3),
+            })
+        if len(tickers_out) >= 5:
+            break
+    result = {"tickers": tickers_out}
+    news_cache.set("trending_stocks", result)
+    return result
+
+
 @app.get("/calendar/upcoming")
 def calendar_upcoming():
     """주요 경제지표 일정 (프론트 캘린더 위젯용)"""

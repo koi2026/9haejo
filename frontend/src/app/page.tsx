@@ -377,6 +377,7 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [historyBriefing, setHistoryBriefing] = useState<{ [date: string]: string[] }>({});
   const [sparklines, setSparklines] = useState<{ [ticker: string]: number[] }>({});
+  const [trending, setTrending] = useState<{ ticker: string; price: number; change_pct: number; mentions: number; sentiment_score: number }[]>([]);
   const [marketData, setMarketData] = useState<{
     indices: Record<string, { price: number; change_pct: number }>;
     fx: Record<string, { price: number; change_pct: number }>;
@@ -433,6 +434,12 @@ export default function Home() {
     fetch(`${API}/news/latest`)
       .then(r => r.json())
       .then(d => { if (d.news?.length) setNews(d.news.slice(0, 5)); })
+      .catch(() => {});
+
+    // 트렌딩 종목
+    fetch(`${API}/market/trending`)
+      .then(r => r.json())
+      .then(d => { if (d.tickers?.length) setTrending(d.tickers); })
       .catch(() => {});
 
     // 지수 스파크라인 (7일 데이터)
@@ -618,6 +625,31 @@ export default function Home() {
                 <FearGauge score={marketData.fear_greed.score} label={marketData.fear_greed.label_kr} />
                 <p style={{ fontSize: 11, color: C.muted, marginTop: 12, textAlign: "center" }}>CNN Fear & Greed Index</p>
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* TRENDING STOCKS */}
+      {trending.length > 0 && (
+        <section style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "28px 24px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <span style={{ fontSize: 11, color: "#f59e0b", fontFamily: "monospace", letterSpacing: 3 }}>TRENDING</span>
+              <span style={{ fontSize: 11, color: C.muted }}>뉴스 언급 급등 종목</span>
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {trending.map(t => {
+                const up = t.change_pct >= 0;
+                const sentColor = t.sentiment_score > 0.15 ? C.green : t.sentiment_score < -0.15 ? C.red : C.muted;
+                return (
+                  <div key={t.ticker} style={{ padding: "12px 16px", borderRadius: 12, background: C.card, border: `1px solid ${up ? `${C.green}25` : `${C.red}20`}`, minWidth: 120 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text, fontFamily: "monospace" }}>{t.ticker}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{t.change_pct.toFixed(2)}%</div>
+                    <div style={{ fontSize: 10, color: sentColor, marginTop: 3 }}>뉴스 {t.mentions}건 {t.sentiment_score > 0.1 ? "▲" : t.sentiment_score < -0.1 ? "▼" : "-"}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -956,8 +988,12 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-            <p style={{ fontSize: 11, color: "#22224a" }}>© 2026 구해조. KOI Spring.</p>
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <p style={{ fontSize: 11, color: "#22224a" }}>© 2026 구해조</p>
+              <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#0a1f14", color: C.green, border: `1px solid ${C.green}30`, fontFamily: "monospace" }}>v3.0 BETA</span>
+              <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: C.muted, textDecoration: "none" }}>피드백 보내기 →</a>
+            </div>
             <p style={{ fontSize: 11, color: "#22224a" }}>본 서비스는 투자 권유가 아닙니다. 투자 판단은 본인 책임입니다.</p>
           </div>
         </div>
