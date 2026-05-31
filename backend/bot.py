@@ -166,6 +166,19 @@ def handle_update(update: dict):
             cb_data = cb.get("data", "").strip()
             if cb_data in HELP_TEXTS:
                 send(chat_id, HELP_TEXTS[cb_data])
+            elif cb_data.startswith("__del_alert_"):
+                ticker = cb_data[len("__del_alert_"):]
+                from alerts import remove_alert, get_alerts
+                n = remove_alert(chat_id, ticker)
+                if n:
+                    remaining = get_alerts(chat_id)
+                    send(chat_id, (
+                        f"✅ <b>{ticker}</b> 알림을 삭제했습니다.\n"
+                        f"남은 알림: {len(remaining)}개\n\n"
+                        f"/알림 — 알림 목록 보기"
+                    ))
+                else:
+                    send(chat_id, f"{ticker} 알림이 없습니다.")
             elif cb_data:
                 handle_update({"message": {"chat": {"id": chat_id}, "text": cb_data}})
             return
@@ -421,7 +434,7 @@ def handle_update(update: dict):
             from stock_analyzer import resolve_ticker
 
             if len(parts) == 1:
-                # 현재 알림 목록
+                # 현재 알림 목록 + 인라인 삭제 버튼
                 user_alerts = get_alerts(chat_id)
                 if not user_alerts:
                     send(chat_id, (
@@ -429,15 +442,29 @@ def handle_update(update: dict):
                         "<b>알림 등록 방법:</b>\n"
                         "/알림 NVDA 200 — NVDA가 $200 이상이 되면 알림\n"
                         "/알림 TSLA 150 하락 — TSLA가 $150 이하 시 알림\n"
-                        "/알림 삭제 NVDA — NVDA 알림 삭제\n"
                         "(최대 5개)"
                     ))
                 else:
-                    lines = [f"🔔 <b>내 가격 알림</b> ({len(user_alerts)}개)\n"]
+                    lines = [f"🔔 <b>내 가격 알림</b> ({len(user_alerts)}개 / 최대 5개)\n"]
                     for a in user_alerts:
+                        direction_icon = "📈" if a["direction"] == "above" else "📉"
                         arrow = ">=" if a["direction"] == "above" else "<="
-                        lines.append(f"{a['ticker']} {arrow} ${a['target']:,.0f}")
-                    send(chat_id, "\n".join(lines))
+                        dir_text = "이상 알림" if a["direction"] == "above" else "이하 알림"
+                        lines.append(f"{direction_icon} <b>{a['ticker']}</b> {arrow} ${a['target']:,.0f} <i>({dir_text})</i>")
+                    lines.append("\n삭제하려면 아래 버튼을 누르세요:")
+                    # 종목별 삭제 버튼 (한 행에 최대 2개)
+                    btn_rows = []
+                    row = []
+                    for a in user_alerts:
+                        row.append({"text": f"🗑 {a['ticker']} 삭제", "callback_data": f"__del_alert_{a['ticker']}"})
+                        if len(row) == 2:
+                            btn_rows.append(row)
+                            row = []
+                    if row:
+                        btn_rows.append(row)
+                    btn_rows.append([{"text": "+ 알림 추가 방법", "callback_data": "__help_alert"}])
+                    markup = {"inline_keyboard": btn_rows}
+                    send(chat_id, "\n".join(lines), reply_markup=markup)
 
             elif len(parts) >= 3 and parts[1].lower() in ["삭제", "delete", "remove"]:
                 ticker = resolve_ticker(parts[2]) or parts[2].upper()
