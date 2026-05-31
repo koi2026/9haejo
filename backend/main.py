@@ -235,15 +235,47 @@ def health():
             webhook_url = wr.json().get("result", {}).get("url", "")
     except Exception:
         pass
+    # 의존성 상태 확인
+    deps = {}
+    try:
+        import yfinance as _yf
+        t = _yf.Ticker("AAPL")
+        t.history(period="1d")
+        deps["yfinance"] = "ok"
+    except Exception as e:
+        deps["yfinance"] = f"error: {e}"
+    try:
+        import anthropic as _ant
+        deps["anthropic"] = "ok" if os.getenv("ANTHROPIC_API_KEY") else "missing_key"
+    except Exception:
+        deps["anthropic"] = "not_installed"
+    # 활성 알림 수
+    alert_count = 0
+    try:
+        from alerts import _load_alerts
+        all_alerts = _load_alerts()
+        alert_count = sum(len(v) for v in all_alerts.values())
+    except Exception:
+        pass
+    # 브리핑 히스토리 수
+    briefing_count = 0
+    try:
+        from briefing_history import get_all_dates
+        briefing_count = len(get_all_dates())
+    except Exception:
+        pass
     return {
         "status": "healthy",
-        "version": "3.0.0",
+        "version": "3.1.0",
         "subscribers": count(),
+        "active_alerts": alert_count,
+        "briefing_history_count": briefing_count,
         "scheduler_running": _scheduler.running,
         "next_briefing_utc": next_job,
         "last_briefing_date": _last_summary.get("date"),
         "uptime_check": datetime.utcnow().isoformat(),
         "webhook_url": webhook_url,
+        "dependencies": deps,
     }
 
 
