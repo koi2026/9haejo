@@ -337,9 +337,32 @@ function EconomicCalendar() {
 
 const POPULAR_TICKERS = ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN", "META", "GOOGL", "AVGO", "BTC-USD", "ETH-USD"];
 
+function Week52Bar({ position }: { position: number | null }) {
+  if (position === null) return null;
+  const pct = Math.max(0, Math.min(100, position));
+  const color = pct >= 80 ? C.green : pct >= 40 ? "#f59e0b" : C.red;
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 11, color: C.muted }}>
+        <span>52주 저가</span>
+        <span style={{ color, fontWeight: 700 }}>{pct.toFixed(0)}% 위치</span>
+        <span>52주 고가</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 3, background: "#1a1a2e", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pct}%`, background: color, borderRadius: 3, transition: "width 0.8s ease" }} />
+        <div style={{ position: "absolute", top: -2, left: `${pct}%`, transform: "translateX(-50%)", width: 10, height: 10, borderRadius: "50%", background: color, border: "2px solid #07070f" }} />
+      </div>
+    </div>
+  );
+}
+
 function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
   const [query, setQuery] = useState("");
-  const [result, setResult] = useState<{ ticker: string; price: number; change_pct: number; change: number; volume: number } | null>(null);
+  const [result, setResult] = useState<{
+    ticker: string; price: number; change_pct: number; change: number; volume: number;
+    name?: string; sector?: string; pe_ratio?: number | null; market_cap?: number | null;
+    week52_high?: number | null; week52_low?: number | null; week52_position?: number | null;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -403,10 +426,11 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
         {error && <div style={{ padding: 16, borderRadius: 12, background: `${C.red}10`, border: `1px solid ${C.red}30`, color: C.red, fontSize: 14 }}>{error}</div>}
         {result && (
           <div style={{ padding: "24px", borderRadius: 16, background: C.card, border: `2px solid ${up ? `${C.green}40` : `${C.red}40`}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
               <div>
                 <div style={{ fontSize: 28, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>{result.ticker}</div>
-                <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>거래량: {result.volume?.toLocaleString()}</div>
+                {result.name && <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{result.name}</div>}
+                {result.sector && <div style={{ fontSize: 11, color: C.blue, marginTop: 2 }}>{result.sector}</div>}
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 36, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>
@@ -417,7 +441,35 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
                 </div>
               </div>
             </div>
-            <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 10, background: "#08081a", fontSize: 13, color: C.muted }}>
+            {/* 52주 위치 게이지 */}
+            {result.week52_position !== null && result.week52_position !== undefined && (
+              <div style={{ marginBottom: 16 }}>
+                <Week52Bar position={result.week52_position} />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 11, color: C.muted, fontFamily: "monospace" }}>
+                  <span>${result.week52_low?.toFixed(2) ?? "N/A"}</span>
+                  <span>${result.week52_high?.toFixed(2) ?? "N/A"}</span>
+                </div>
+              </div>
+            )}
+            {/* 세부 정보 */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+              {result.pe_ratio && (
+                <div style={{ padding: "6px 12px", borderRadius: 8, background: "#08081a", fontSize: 12, color: C.muted }}>
+                  PER <span style={{ color: C.text, fontWeight: 700 }}>{result.pe_ratio}</span>
+                </div>
+              )}
+              {result.volume && (
+                <div style={{ padding: "6px 12px", borderRadius: 8, background: "#08081a", fontSize: 12, color: C.muted }}>
+                  거래량 <span style={{ color: C.text, fontWeight: 700 }}>{(result.volume / 1e6).toFixed(1)}M</span>
+                </div>
+              )}
+              {result.market_cap && (
+                <div style={{ padding: "6px 12px", borderRadius: 8, background: "#08081a", fontSize: 12, color: C.muted }}>
+                  시총 <span style={{ color: C.text, fontWeight: 700 }}>${(result.market_cap / 1e12).toFixed(2)}T</span>
+                </div>
+              )}
+            </div>
+            <div style={{ padding: "10px 14px", borderRadius: 10, background: "#08081a", fontSize: 13, color: C.muted }}>
               💡 <span style={{ color: C.text }}>@goohaejo_bot</span> 에서 <code style={{ background: "#1a1a2e", padding: "2px 6px", borderRadius: 4, color: C.green }}>{result.ticker}</code> 를 입력하면 AI 분석 리포트를 받을 수 있습니다.
             </div>
           </div>
