@@ -825,6 +825,53 @@ def handle_update(update: dict):
                 send(chat_id, "52주 스캔 중 오류가 발생했어요.")
 
         # ── /섹터 ────────────────────────────────────
+        elif cmd in ["/공포탐욕", "/fg", "/feargreed", "/fng"]:
+            from collector import collect_fear_greed
+            fg = collect_fear_greed()
+            score = fg.get("score", 50)
+            label = fg.get("label_kr", "중립")
+            # ASCII gauge: 20-char wide
+            filled = round(score / 5)  # 0-20
+            bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
+            # Zone labels
+            if score >= 75:
+                emoji = "😈"
+                advice = "시장이 과열 상태입니다. 리스크 관리에 주의하세요."
+                color_zone = "극단적 탐욕 구간 (75-100)"
+            elif score >= 55:
+                emoji = "🤑"
+                advice = "낙관론이 우세합니다. 일부 차익실현 고려해보세요."
+                color_zone = "탐욕 구간 (55-74)"
+            elif score >= 45:
+                emoji = "😐"
+                advice = "시장 방향성이 불확실합니다. 관망도 전략입니다."
+                color_zone = "중립 구간 (45-54)"
+            elif score >= 25:
+                emoji = "😰"
+                advice = "투자자들이 겁을 먹고 있습니다. 매수 기회를 탐색하세요."
+                color_zone = "공포 구간 (25-44)"
+            else:
+                emoji = "😱"
+                advice = "극도의 패닉 상태! 역발상 투자자에게는 매수 기회."
+                color_zone = "극단적 공포 구간 (0-24)"
+            # Zones visual
+            zones = "공포탐욕 스펙트럼:\n"
+            zones += "0   25   50   75  100\n"
+            zones += "|극공포|공포|중립|탐욕|극탐욕|\n"
+            marker_pos = round(score / 5)
+            marker = " " * marker_pos + "^"
+            zones += marker + f" {score:.0f}"
+            send(chat_id, (
+                f"<b>{emoji} 공포탐욕지수 (Fear & Greed)</b>\n\n"
+                f"<code>0{' ' * 9}50{' ' * 8}100</code>\n"
+                f"<code>{bar}</code>\n"
+                f"<code>{' ' * (filled - 1)}^ {score:.1f}점</code>\n\n"
+                f"<b>현재: {score:.1f}점 — {label}</b>\n"
+                f"구간: {color_zone}\n\n"
+                f"<i>{advice}</i>\n\n"
+                f"출처: CNN Fear & Greed Index"
+            ))
+
         elif cmd in ["/섹터", "/sector", "/sectors"]:
             send(chat_id, "📊 섹터 ETF 분석 중... (약 10초)")
             try:
