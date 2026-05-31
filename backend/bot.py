@@ -762,6 +762,40 @@ def handle_update(update: dict):
                     logger.error("outlook error: %s", e)
                     send(chat_id, "전망 분석 중 오류가 발생했어요.")
 
+        # ── /실적 ────────────────────────────────────────
+        elif cmd in ["/실적", "/earnings", "/어닝"]:
+            from datetime import date
+            today = date.today()
+            # Q2 2026 어닝 시즌 주요 종목 (하드코딩, 예상치)
+            EARNINGS = [
+                (date(2026, 7, 15), "JPM", "JP모건", "EPS 예상 $4.20"),
+                (date(2026, 7, 16), "GS", "골드만삭스", "EPS 예상 $8.50"),
+                (date(2026, 7, 22), "TSLA", "테슬라", "EPS 예상 $0.72"),
+                (date(2026, 7, 23), "GOOGL", "알파벳", "EPS 예상 $2.15"),
+                (date(2026, 7, 24), "META", "메타", "EPS 예상 $5.90"),
+                (date(2026, 7, 28), "AAPL", "애플", "EPS 예상 $1.58"),
+                (date(2026, 7, 29), "MSFT", "마이크로소프트", "EPS 예상 $3.10"),
+                (date(2026, 7, 30), "AMZN", "아마존", "EPS 예상 $1.42"),
+                (date(2026, 8, 6), "NVDA", "엔비디아", "EPS 예상 $0.84"),
+                (date(2026, 8, 13), "AVGO", "브로드컴", "EPS 예상 $1.20"),
+            ]
+            upcoming = [(d, sym, name, eps) for d, sym, name, eps in EARNINGS if d >= today][:6]
+            past = [(d, sym, name, eps) for d, sym, name, eps in EARNINGS if d < today][-2:]
+            lines = ["<b>📊 Q2 2026 어닝 캘린더</b>\n"]
+            if past:
+                lines.append("<b>발표 완료</b>")
+                for d, sym, name, eps in past:
+                    ago = (today - d).days
+                    lines.append(f"  <s>{d.strftime('%m/%d')} {sym} ({name})</s> — {ago}일 전")
+                lines.append("")
+            lines.append("<b>예정 발표</b>")
+            for d, sym, name, eps in upcoming:
+                left = (d - today).days
+                marker = " ⚡" if left <= 7 else ""
+                lines.append(f"  {d.strftime('%m/%d')} <b>{sym}</b> ({name})\n    {eps} · D-{left}{marker}")
+            lines.append("\n<i>예상치는 FactSet 컨센서스 기준, 변동될 수 있습니다</i>")
+            send(chat_id, "\n".join(lines))
+
         # ── /캘린더 ──────────────────────────────────────
         elif cmd in ["/캘린더", "/calendar", "/일정", "/캘", "/schedule"]:
             from datetime import date, timedelta

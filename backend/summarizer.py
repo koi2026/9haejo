@@ -121,67 +121,57 @@ def summarize(data: dict) -> dict:
     sp500_pct = idx.get("S&P500", {}).get("change_pct", 0) or 0
     nasdaq_pct = idx.get("NASDAQ", {}).get("change_pct", 0) or 0
 
-    prompt = f"""You are the AI analyst for 9haejo, a Korean stock market briefing service similar to Toss Securities.
-Write EXACTLY 5 Telegram messages in Korean for {date} ({wd}) market briefing.
-Use real numbers from data. Be concise, clear, impactful.
+    prompt = f"""You are the head analyst at 9haejo, Korea's premier AI stock briefing service.
+Write EXACTLY 5 Telegram messages in Korean for {date} ({wd}) — Toss Securities quality.
 Separate each message with exactly: ---
 
-MARKET DATA:
-Indices:
-{idx_text}
+DATA (use EXACT numbers, never approximate):
+Indices: {idx_text}
+Sectors: {sec_text}
+Stocks: {stk_text}
+FX: USD/KRW={krw}  USD/JPY={jpy}
+Fear&Greed: {fg_score}/100 ({fg_label})
+Best sector: {best_sec[0]} {fmt_pct(best_sec[1])} | Worst: {worst_sec[0]} {fmt_pct(worst_sec[1])}
+Top gainer: {top_gainer[0]} {fmt_pct(top_gainer[1])} | Top loser: {top_loser[0]} {fmt_pct(top_loser[1])}
+News: {top_news}
 
-Sectors:
-{sec_text}
+STYLE RULES (MUST FOLLOW):
+- Each message MAX 380 chars. Korean + English tickers.
+- Always format numbers: NVDA +3.24% ($875.20) — never "NVDA rose"
+- Use HTML bold <b>text</b> for headers/key numbers
+- Give the "SO WHAT" for Korean investors after every data point
+- Be specific, confident, actionable — like a Bloomberg terminal + friendly tone
 
-Big Stocks:
-{stk_text}
+[1/5] 마감 브리핑
+Header: <b>📊 미국 증시 {date} 마감</b>
+- S&P500 {fmt_pct(sp500_pct)}, NASDAQ {fmt_pct(nasdaq_pct)} (exact index levels from data)
+- Fear&Greed {fg_score} = {fg_label} → 다음날 투자 심리 한줄 해석
+- 시장 전체 분위기 한줄 임팩트 문장
 
-FX: USD/KRW={krw}won, USD/JPY={jpy}
-Fear & Greed: {fg_score}/100 ({fg_label})
-Best sector: {best_sec[0]} {fmt_pct(best_sec[1])}
-Worst sector: {worst_sec[0]} {fmt_pct(worst_sec[1])}
-Top gainer: {top_gainer[0]} {fmt_pct(top_gainer[1])}
-Top loser: {top_loser[0]} {fmt_pct(top_loser[1])}
-
-News:
-{top_news}
-
-FORMAT RULES:
-- Start each message with emoji + bold header line
-- ALWAYS use exact numbers from data (never approximate)
-- Include arrows: up-arrow for gains, down-arrow for losses
-- Each message MAX 350 characters
-- Korean text, English tickers
-- Be specific: "NVDA +3.2% ($875)" not "NVDA rose"
-- Compare to recent context where possible
-
-Message 1 - [1/5] Market Overview:
-First line: "📊 미국 증시 {date} 마감" (bold)
-S&P500 exact %, NASDAQ exact % with absolute value
-Fear & Greed {fg_score} — interpret what it means for next day
-One punchy market mood sentence Korean investors care about
-
-Message 2 - [2/5] Sector Spotlight:
-Include this sector bar (copy exactly):
+[2/5] 섹터 분석
+Header: <b>🔥 섹터 성적표</b>
 {sec_bar}
-Best sector winner + why it matters for Korean stocks
-Worst sector + Korean stocks affected
+- 1위 섹터 왜 올랐는지 + 한국 관련주 영향
+- 꼴찌 섹터 왜 빠졌는지 + 조심해야 할 것
 
-Message 3 - [3/5] Big Tech Movers:
-Top gainer with exact price and % — why it moved (news/earnings if any)
-Top loser with exact price and % — what went wrong
-One other notable mover worth watching
+[3/5] 주목 종목
+Header: <b>⚡ 오늘의 주인공</b>
+- {top_gainer[0]}: 정확한 가격과 % + 급등 이유 (뉴스/실적/기대감)
+- {top_loser[0]}: 정확한 가격과 % + 하락 이유
+- 내일 주목할 1종목 + 이유
 
-Message 4 - [4/5] Korea Market Preview:
-USD/KRW rate {krw}won - impact on Korean stocks
-Which KOSPI/KOSDAQ stocks will be affected tomorrow
-Concrete names: 삼성전자, SK하이닉스, 카카오, 네이버 etc
+[4/5] 한국 시장 영향
+Header: <b>🇰🇷 내일 코스피 체크포인트</b>
+- USD/KRW {krw}원 → 수출주/반도체/배터리 영향 분석
+- 직접 영향받는 종목명 명시 (삼성전자, SK하이닉스, LG에너지솔루션 등)
+- 환율/섹터 트렌드 기반 내일 예상 흐름
 
-Message 5 - [5/5] Tomorrow's Playbook:
-3 concrete things Korean investors should watch
-Specific tickers or sectors
-End with: "구독: @goohaejo_bot"
-"""
+[5/5] 내일 플레이북
+Header: <b>📋 내일 {date} 투자 체크리스트</b>
+- 주시할 경제지표/이벤트 (구체적 시각 포함)
+- 매수/관망/주의 신호 각 1가지씩
+- 핵심 한줄 요약
+구독: @goohaejo_bot"""
 
     client = get_client()
     raw = claude_call_with_retry(client, "claude-opus-4-5", prompt, max_tokens=2500)
