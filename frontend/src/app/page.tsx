@@ -122,43 +122,115 @@ function BriefingCard({ text, index }: { text: string; index: number }) {
 }
 
 function FearGauge({ score, label }: { score: number; label: string }) {
-  const pct = Math.max(0, Math.min(100, score));
-  const angle = -90 + (pct / 100) * 180;
-  const r = 54;
-  const cx = 70; const cy = 70;
+  const [animScore, setAnimScore] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const dur = 1400;
+    const tick = () => {
+      const t = Math.min((Date.now() - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setAnimScore(Math.round(score * eased));
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [score]);
+
+  const pct = Math.max(0, Math.min(100, animScore));
+  const W = 200; const H = 120;
+  const cx = W / 2; const cy = 106;
+  const R = 80; const r2 = 56;
   const rad = (deg: number) => (deg * Math.PI) / 180;
-  const needleX = cx + r * Math.cos(rad(angle - 90));
-  const needleY = cy + r * Math.sin(rad(angle - 90));
-  const zones = [
-    { color: "#ff4466", end: 25 },
-    { color: "#f59e0b", end: 45 },
-    { color: "#6b6b80", end: 55 },
-    { color: "#00b88a", end: 75 },
-    { color: "#00d97e", end: 100 },
-  ];
-  const arcPath = (startPct: number, endPct: number) => {
-    const startAngle = -180 + (startPct / 100) * 180;
-    const endAngle = -180 + (endPct / 100) * 180;
-    const x1 = cx + r * Math.cos(rad(startAngle));
-    const y1 = cy + r * Math.sin(rad(startAngle));
-    const x2 = cx + r * Math.cos(rad(endAngle));
-    const y2 = cy + r * Math.sin(rad(endAngle));
-    return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
+  const polarX = (radius: number, deg: number) => cx + radius * Math.cos(rad(deg));
+  const polarY = (radius: number, deg: number) => cy + radius * Math.sin(rad(deg));
+
+  // Arc from 180deg (left) to 0deg (right), counterclockwise = bottom half hidden
+  const arcSeg = (startPct: number, endPct: number) => {
+    const sa = 180 - startPct * 1.8;
+    const ea = 180 - endPct * 1.8;
+    const x1 = polarX(R, sa); const y1 = polarY(R, sa);
+    const x2 = polarX(R, ea); const y2 = polarY(R, ea);
+    const xi1 = polarX(r2, sa); const yi1 = polarY(R, sa);
+    const xi2 = polarX(r2, ea); const yi2 = polarY(r2, ea);
+    const large = Math.abs(endPct - startPct) > 50 ? 1 : 0;
+    return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 0 ${x2} ${y2} L ${polarX(r2,ea)} ${polarY(r2,ea)} A ${r2} ${r2} 0 ${large} 1 ${polarX(r2,sa)} ${polarY(r2,sa)} Z`;
   };
-  let prev = 0;
+
+  const zones = [
+    { label: "극단공포", color: "#ff3355", start: 0, end: 20 },
+    { label: "공포", color: "#ff7733", start: 20, end: 40 },
+    { label: "중립", color: "#aaaaaa", start: 40, end: 60 },
+    { label: "탐욕", color: "#00cc88", start: 60, end: 80 },
+    { label: "극단탐욕", color: "#00d97e", start: 80, end: 100 },
+  ];
+
+  const needleAngle = 180 - pct * 1.8;
+  const nx = polarX(72, needleAngle);
+  const ny = polarY(72, needleAngle);
+  const activeZone = zones.find(z => score >= z.start && score < z.end) || zones[4];
+  const activeColor = activeZone.color;
+
   return (
-    <div style={{ textAlign: "center" }}>
-      <svg width={140} height={80} viewBox="0 0 140 80">
-        {zones.map((z) => {
-          const p = arcPath(prev, z.end);
-          prev = z.end;
-          return <path key={z.end} d={p} fill="none" stroke={z.color} strokeWidth={10} strokeLinecap="round" opacity={0.25} />;
+    <div style={{ textAlign: "center", width: "100%" }}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+        <defs>
+          <filter id="glowFG">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        {/* Background track */}
+        {zones.map(z => (
+          <path key={z.start} d={arcSeg(z.start, z.end)} fill={z.color} opacity={0.12} />
+        ))}
+        {/* Active fill up to score */}
+        {zones.map(z => {
+          const fillEnd = Math.min(pct, z.end);
+          if (fillEnd <= z.start) return null;
+          return <path key={`a${z.start}`} d={arcSeg(z.start, fillEnd)} fill={z.color} opacity={0.85} />;
         })}
-        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="#e8e8f0" strokeWidth={2.5} strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r={4} fill="#e8e8f0" />
-        <text x={cx} y={cy + 18} textAnchor="middle" fill="#e8e8f0" fontSize="14" fontWeight="900">{score}</text>
+        {/* Needle */}
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={activeColor} strokeWidth={3} strokeLinecap="round" filter="url(#glowFG)" />
+        <circle cx={cx} cy={cy} r={7} fill={activeColor} filter="url(#glowFG)" />
+        <circle cx={cx} cy={cy} r={4} fill="#07070f" />
+        {/* Score */}
+        <text x={cx} y={cy - 14} textAnchor="middle" fill={activeColor} fontSize="22" fontWeight="900">{animScore}</text>
+        {/* Zone labels */}
+        <text x={polarX(R+10, 178)} y={polarY(R+10, 178)} textAnchor="end" fill="#ff3355" fontSize="8" opacity="0.7">극단공포</text>
+        <text x={polarX(R+10, 2)} y={polarY(R+10, 2)} textAnchor="start" fill="#00d97e" fontSize="8" opacity="0.7">극단탐욕</text>
+        <text x={cx} y={cy - R - 6} textAnchor="middle" fill="#aaaaaa" fontSize="8" opacity="0.6">중립</text>
       </svg>
-      <div style={{ fontSize: 12, color: score >= 75 ? "#00d97e" : score >= 55 ? "#00b88a" : score >= 45 ? "#6b6b80" : score >= 25 ? "#f59e0b" : "#ff4466", fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 800, color: activeColor, marginTop: 4, letterSpacing: 0.5 }}>{label}</div>
+    </div>
+  );
+}
+
+function FxWidget({ fx }: { fx: Record<string, { price: number; change_pct: number }> }) {
+  const pairs = ["USD/KRW", "USD/JPY", "EUR/USD"];
+  const icons: Record<string, string> = { "USD/KRW": "🇰🇷", "USD/JPY": "🇯🇵", "EUR/USD": "🇪🇺" };
+  const format: Record<string, (v: number) => string> = {
+    "USD/KRW": v => v.toLocaleString("ko-KR", { maximumFractionDigits: 0 }) + "원",
+    "USD/JPY": v => v.toFixed(2) + "¥",
+    "EUR/USD": v => v.toFixed(4),
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {pairs.map(pair => {
+        const d = fx[pair];
+        if (!d) return null;
+        const up = d.change_pct >= 0;
+        return (
+          <div key={pair} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "#08081a", border: `1px solid ${up ? "#00d97e18" : "#ff446618"}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18 }}>{icons[pair]}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, fontFamily: "monospace" }}>{pair}</span>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{format[pair](d.price)}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{d.change_pct.toFixed(2)}%</div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -607,16 +679,11 @@ export default function Home() {
               {/* 환율 */}
               <div style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}` }}>
                 <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 14 }}>FX RATES</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <FxWidget fx={marketData.fx} />
+                <div style={{ display: "none", flexDirection: "column", gap: 8 }}>
                   {Object.entries(marketData.fx).map(([name, d]) => (
                     <IndexTicker key={name} name={name} data={d} />
                   ))}
-                </div>
-                <div style={{ marginTop: 16, padding: "12px", borderRadius: 10, background: "#08081a", border: "1px solid #1a1a2e" }}>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>USD/KRW</div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: C.text }}>
-                    {marketData.fx["USD/KRW"]?.price ? `${Math.round(marketData.fx["USD/KRW"].price).toLocaleString()}원` : "-"}
-                  </div>
                 </div>
               </div>
               {/* 공포탐욕 */}
