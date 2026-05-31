@@ -895,3 +895,74 @@ def scan_52week() -> str:
     result = "\n".join(lines)
     quote_cache.set(cache_key, result)
     return result
+
+
+# ── 고배당 종목 스크리너 ──────────────────────────────────────────
+DIVIDEND_STOCKS = ["T", "VZ", "XOM", "CVX", "PFE", "MO", "PM", "IBM", "KO", "PEP",
+                   "JNJ", "MMM", "WBA", "ABBV", "INTC", "VLO", "MPC", "OKE", "EPD", "ET"]
+
+
+def analyze_dividend_stocks() -> str:
+    """고배당 종목 스크리너: 배당수익률 상위 + AI 분석"""
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from cache import quote_cache
+
+    cache_key = "dividend_analysis"
+    cached = quote_cache.get(cache_key)
+    if cached:
+        return cached
+
+    def fetch_div(sym: str):
+        try:
+            info = yf.Ticker(sym).info
+            price = info.get("currentPrice") or info.get("regularMarketPrice", 0)
+            div_yield = info.get("dividendYield", 0) or 0
+            div_rate = info.get("dividendRate", 0) or 0
+            payout = info.get("payoutRatio", 0) or 0
+            name = info.get("shortName", sym)
+            sector = info.get("sector", "")
+            return sym, {
+                "name": name, "sector": sector, "price": price,
+                "div_yield": div_yield * 100, "div_rate": div_rate,
+                "payout": payout * 100 if payout else None,
+            }
+        except Exception:
+            return sym, None
+
+    data = {}
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {pool.submit(fetch_div, s): s for s in DIVIDEND_STOCKS}
+        for f in as_completed(futures):
+            sym, d = f.result()
+            if d and d["div_yield"] > 0:
+                data[sym] = d
+
+    if not data:
+        return "배당 데이터를 가져올 수 없습니다."
+
+    sorted_stocks = sorted(data.items(), key=lambda x: x[1]["div_yield"], reverse=True)[:10]
+
+    lines = ["<b>💰 고배당 TOP 10</b> (배당수익률 기준)\n"]
+    ai_data = []
+    for sym, d in sorted_stocks:
+        payout_str = f" 지급률:{d['payout']:.0f}%" if d["payout"] else ""
+        lines.append(
+            f"<b>{sym}</b> {d['div_yield']:.2f}% | ${d['price']:.1f} | 연${d['div_rate']:.2f}{payout_str}"
+        )
+        ai_data.append(f"{sym}({d['name']}): 수익률{d['div_yield']:.1f}%, 지급률{d['payout']:.0f}%" if d["payout"] else f"{sym}: {d['div_yield']:.1f}%")
+
+    top3 = sorted_stocks[:3]
+    prompt = f"""You are a dividend investing expert for Korean retail investors.
+Briefly analyze in Korean (max 380 chars):
+1. Which of the top 3 dividend stocks ({', '.join(s for s,_ in top3)}) is most attractive now and why (1 line each)
+2. Warning: any stocks with unsustainably high payout ratio (>80%)?
+3. One sentence: are dividend stocks a good idea right now vs growth stocks?
+Korean only.
+
+Data: {', '.join(ai_data[:6])}"""
+
+    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=450)
+    result = "\n".join(lines) + "\n\n" + ai + "\n\n<i>*배당 투자는 장기 보유 기준. 세금 고려 필수*</i>"
+    quote_cache.set(cache_key, result)
+    return result
