@@ -78,46 +78,80 @@ MAIN_MENU = {
 
 HELP_MENU = {
     "inline_keyboard": [[
-        {"text": "📈 브리핑 커맨드", "callback_data": "__help_briefing"},
+        {"text": "📈 브리핑/시황", "callback_data": "__help_briefing"},
         {"text": "🔍 종목 분석", "callback_data": "__help_stock"},
     ], [
         {"text": "📋 관심종목", "callback_data": "__help_watchlist"},
-        {"text": "🔔 알림", "callback_data": "__help_alert"},
+        {"text": "🔔 가격 알림", "callback_data": "__help_alert"},
+    ], [
+        {"text": "🌐 매크로/캘린더", "callback_data": "__help_macro"},
+        {"text": "🪙 랭킹/통계", "callback_data": "__help_ranking"},
     ]]
 }
 
 HELP_TEXTS = {
     "__help_briefing": (
-        "📈 <b>브리핑 커맨드</b>\n\n"
+        "📈 <b>브리핑 & 시황</b>\n\n"
+        "/브리핑 — AI 브리핑 즉시 받기 (30초)\n"
+        "/시황 — 지수+환율+섹터 히트맵\n"
+        "/뉴스 — 월가 뉴스 한국어 요약 (호재/악재)\n"
+        "/뉴스 NVDA — 특정 종목 뉴스\n"
+        "/한줄 — 오늘 시장 150자 요약 (공유용)\n"
+        "/주간 — 이번 주 지수 성적표\n\n"
         "/구독 — 매일 8시 자동 브리핑 구독\n"
         "/구독취소 — 구독 해제\n"
-        "/브리핑 — 지금 즉시 AI 브리핑 (30초)\n"
-        "/시황 — 빠른 지수+환율+공포탐욕 현황\n"
-        "/뉴스 — 오늘의 월가 뉴스 한국어 요약"
+        "/지난브리핑 — 어제 브리핑 다시보기"
     ),
     "__help_stock": (
         "🔍 <b>종목 분석</b>\n\n"
-        "티커 입력: <code>NVDA</code> <code>TSLA</code> <code>AAPL</code>\n"
-        "한국어 입력: <code>엔비디아</code> <code>테슬라</code> <code>삼성전자</code>\n\n"
-        "/compare NVDA TSLA — 두 종목 비교\n"
-        "/sector 반도체 — 섹터 분석\n"
-        "(반도체/기술/에너지/금융/소비/통신)"
+        "<b>티커 직접 입력:</b>\n"
+        "<code>NVDA</code>  <code>TSLA</code>  <code>AAPL</code>  <code>MSFT</code>\n\n"
+        "<b>한국어로 입력:</b>\n"
+        "<code>엔비디아</code>  <code>테슬라</code>  <code>삼성전자</code>\n\n"
+        "/비교 NVDA TSLA — 두 종목 AI 비교\n"
+        "/종목전망 NVDA — 주간 AI 전망\n"
+        "/차트 NVDA — 30일 스파크라인 차트\n"
+        "/sector 반도체 — 섹터 ETF 분석\n"
+        "/상승 반도체 — 섹터별 상승 TOP5\n"
+        "/하락 — 하락 TOP5"
     ),
     "__help_watchlist": (
-        "📋 <b>관심종목</b>\n\n"
-        "/watchlist — 관심종목 현황 및 시세\n"
+        "📋 <b>관심종목 & 포트폴리오</b>\n\n"
+        "/watchlist — 내 관심종목 현황\n"
         "/watchlist add NVDA — 추가\n"
-        "/watchlist remove NVDA — 삭제\n"
-        "/포트폴리오 — 관심종목 AI 진단\n\n"
-        "매일 아침 브리핑과 함께 관심종목 현황도 발송됩니다."
+        "/watchlist remove NVDA — 삭제\n\n"
+        "/포트폴리오 — 종목별 매수/관망/매도 AI 신호\n"
+        "  + 포트폴리오 건강도 점수 (0-100)\n\n"
+        "매일 8시 브리핑과 함께 관심종목 현황 자동 발송!"
     ),
     "__help_alert": (
         "🔔 <b>가격 알림</b>\n\n"
-        "/알림 NVDA 200 — NVDA $200 이상 시 알림\n"
-        "/알림 TSLA 150 하락 — TSLA $150 이하 시 알림\n"
-        "/알림 삭제 NVDA — 알림 삭제\n"
-        "/알림 — 현재 알림 목록\n\n"
-        "5분마다 가격 체크, 최대 5개 등록 가능"
+        "<b>등록:</b>\n"
+        "/알림 NVDA 200 — $200 이상 시 알림\n"
+        "/알림 TSLA 150 하락 — $150 이하 시 알림\n\n"
+        "<b>관리:</b>\n"
+        "/알림 — 현재 알림 목록\n"
+        "/알림 삭제 NVDA — NVDA 알림 삭제\n\n"
+        "5분마다 자동 체크, 최대 5개 등록\n"
+        "알림 발동 시 AI 한줄 액션 조언 포함"
+    ),
+    "__help_macro": (
+        "🌐 <b>매크로 & 경제지표</b>\n\n"
+        "/매크로 — VIX, DXY, 금리, WTI, 금, BTC\n"
+        "  AI 한국어 해석 포함\n\n"
+        "/캘린더 — FOMC, CPI, NFP, PCE 일정\n"
+        "  D-카운트다운 + 지난 지표 표시\n\n"
+        "/환율 — USD/KRW, USD/JPY, USD/CNY\n"
+        "  AI 환율 전망 포함"
+    ),
+    "__help_ranking": (
+        "🪙 <b>랭킹 & 통계</b>\n\n"
+        "/랭킹 crypto — BTC ETH SOL 시세\n"
+        "/랭킹 bigtech — 빅테크 7종목 랭킹\n"
+        "/랭킹 kr — 코스피 대형주 랭킹\n\n"
+        "/내통계 — 내 구독/관심종목/알림 현황\n"
+        "/설정 — 개인 설정 보기\n\n"
+        "9haejo.vercel.app 에서 웹으로도 확인 가능!"
     ),
 }
 
@@ -799,28 +833,41 @@ def handle_update(update: dict):
 
         # ── 종목 분석 (자유 텍스트) ──────────────────
         else:
-            send(chat_id, f"🔍 <b>{text}</b> 분석 중... (10~20초 소요)")
+            # 너무 짧거나 명백히 커맨드처럼 보이면 무시
+            if len(text) < 2 or text.startswith("/"):
+                send(chat_id, "❓ 명령어를 입력해주세요.\n/help 로 전체 커맨드를 확인하세요.", reply_markup=HELP_MENU)
+                return
+
+            from stock_analyzer import resolve_ticker
+            ticker = resolve_ticker(text) or (text.upper() if text.isalpha() and len(text) <= 6 else None)
+            display = ticker or text
+
+            send(chat_id, f"🔍 <b>{display}</b> 분석 중... (10~20초 소요)")
             try:
-                from stock_analyzer import analyze_stock, resolve_ticker, get_price_chart
+                from stock_analyzer import analyze_stock, get_price_chart
                 result = analyze_stock(text)
                 send(chat_id, result)
                 # 스파크라인 차트 추가 전송
                 try:
-                    ticker = resolve_ticker(text) or text.upper()
-                    chart = get_price_chart(ticker, 14)
+                    t = ticker or text.upper()
+                    chart = get_price_chart(t, 14)
                     if chart and "실패" not in chart:
                         send(chat_id, chart)
                 except Exception:
                     pass
             except Exception as e:
                 logger.error("stock analysis error: %s", e)
+                retry_markup = {
+                    "inline_keyboard": [[
+                        {"text": f"🔄 {display} 다시 시도", "callback_data": text},
+                        {"text": "📖 도움말", "callback_data": "__help_stock"},
+                    ]]
+                }
                 send(chat_id, (
-                    "❌ 분석 중 오류가 발생했어요.\n\n"
-                    "<b>사용 가능한 입력 예시:</b>\n"
-                    "티커: <code>NVDA</code> <code>TSLA</code> <code>AAPL</code>\n"
-                    "한국어: <code>엔비디아</code> <code>테슬라</code> <code>삼성전자</code>\n\n"
-                    "잠시 후 다시 시도해주세요."
-                ))
+                    f"❌ <b>{display}</b> 분석 중 오류가 발생했어요.\n\n"
+                    "잠시 후 다시 시도하거나 정확한 티커를 입력해주세요.\n\n"
+                    "<b>예시:</b> <code>NVDA</code>  <code>TSLA</code>  <code>엔비디아</code>"
+                ), reply_markup=retry_markup)
 
     except Exception as e:
         logger.error("handle_update error: %s", e)
