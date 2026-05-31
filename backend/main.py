@@ -143,6 +143,7 @@ def register_bot_commands():
         {"command": "차트", "description": "종목 30일 스파크라인 차트 (예: /차트 NVDA)"},
         {"command": "캘린더", "description": "FOMC/CPI/NFP 주요 경제지표 일정"},
         {"command": "비교", "description": "두 종목 AI 비교 (예: /비교 NVDA TSLA)"},
+        {"command": "실적", "description": "Q2 어닝 시즌 주요 종목 발표 일정"},
     ]
     try:
         r = _httpx.post(
