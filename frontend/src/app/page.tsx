@@ -80,9 +80,30 @@ function useCountUp(target: number | null, duration = 1200) {
   return display;
 }
 
-function StatCard({ value, label, sub }: { value: string; label: string; sub?: string }) {
+function StatCard({ value, label, sub, live, highlight }: { value: string; label: string; sub?: string; live?: boolean; highlight?: boolean }) {
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    if (!live) return;
+    const id = setInterval(() => { setPulse(p => !p); }, 1500);
+    return () => clearInterval(id);
+  }, [live]);
   return (
-    <div style={{ padding: "20px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, textAlign: "center", flex: "1 1 140px" }}>
+    <div style={{
+      padding: "20px 24px", borderRadius: 16, background: C.card,
+      border: `1px solid ${highlight ? C.green : C.border}`,
+      textAlign: "center", flex: "1 1 140px", position: "relative",
+      boxShadow: highlight ? `0 0 20px ${C.green}18` : "none",
+    }}>
+      {live && (
+        <div style={{ position: "absolute", top: 10, right: 12, display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{
+            width: 7, height: 7, borderRadius: "50%", background: C.green,
+            opacity: pulse ? 1 : 0.3, transition: "opacity 0.6s ease",
+            boxShadow: pulse ? `0 0 6px ${C.green}` : "none",
+          }} />
+          <span style={{ fontSize: 9, color: C.green, fontFamily: "monospace", letterSpacing: 1 }}>LIVE</span>
+        </div>
+      )}
       <div style={{ fontSize: 28, fontWeight: 900, background: C.grad, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{value}</div>
       <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginTop: 4 }}>{label}</div>
       {sub && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{sub}</div>}
@@ -532,11 +553,15 @@ export default function Home() {
       .catch(() => {})
       .finally(() => setBriefingLoading(false));
 
-    // 구독자 수
-    fetch(`${API}/subscribers/count`)
-      .then(r => r.json())
-      .then(d => setSubCount(d.count))
-      .catch(() => {});
+    // 구독자 수 (30초마다 갱신)
+    const loadSubCount = () => {
+      fetch(`${API}/subscribers/count`)
+        .then(r => r.json())
+        .then(d => setSubCount(d.count))
+        .catch(() => {});
+    };
+    loadSubCount();
+    const subInterval = setInterval(loadSubCount, 30000);
 
     // 실시간 시장 데이터 (30초마다 갱신)
     const loadMarket = () => {
@@ -585,7 +610,10 @@ export default function Home() {
       })
       .catch(() => {});
 
-    return () => { if (marketRef.current) clearInterval(marketRef.current); };
+    return () => {
+      if (marketRef.current) clearInterval(marketRef.current);
+      clearInterval(subInterval);
+    };
   }, []);
 
   const handleSubscribe = async (e: React.FormEvent) => {
@@ -699,7 +727,7 @@ export default function Home() {
 
           {/* 지표 */}
           <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-            <StatCard value={subCount !== null ? `${animatedCount}명` : "-"} label="구독자" sub="실시간" />
+            <StatCard value={subCount !== null ? `${animatedCount}명` : "-"} label="구독자" sub="30초마다 갱신" live highlight />
             <StatCard value={adminStats?.total_watchlist_items != null ? `${adminStats.total_watchlist_items}개` : "200+"} label="관심종목 등록" sub="누적" />
             <StatCard value={adminStats?.total_price_alerts != null ? `${adminStats.total_price_alerts}개` : "0"} label="가격 알림" sub="활성" />
             <StatCard value="08:00" label="발송 시각" sub="KST 매일" />
