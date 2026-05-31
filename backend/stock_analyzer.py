@@ -1135,3 +1135,99 @@ Be specific with prices and %. Korean only."""
     )
     ai = claude_call("claude-haiku-4-5", prompt, max_tokens=700)
     return header + ai + "\n\n<i>*개인화 분석 | 투자 결정은 본인 책임*</i>"
+
+
+# ── 주요 ETF 분석 ─────────────────────────────────────────────
+MAJOR_ETFS = {
+    "SPY": "S&P500 전체",
+    "QQQ": "나스닥100",
+    "IWM": "소형주(Russell)",
+    "ARKK": "혁신기술",
+    "VOO": "뱅가드 S&P",
+    "VTI": "전체 미국주식",
+    "GLD": "금 ETF",
+    "TLT": "20년 국채",
+    "XLK": "기술섹터",
+    "SOXX": "반도체",
+}
+
+ETF_TOP_HOLDINGS = {
+    "QQQ": "MSFT, NVDA, AAPL",
+    "ARKK": "TSLA, COIN, ROKU",
+    "SOXX": "NVDA, AMD, AVGO",
+    "XLK": "MSFT, AAPL, NVDA",
+    "GLD": "금 현물 추종",
+    "TLT": "미국 장기국채",
+    "SPY": "S&P500 500종목",
+    "VOO": "S&P500 저비용",
+    "VTI": "미국 전체시장",
+    "IWM": "중소형주 2000종목",
+}
+
+
+def analyze_etfs() -> str:
+    """주요 ETF 현황 + AI 분석"""
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from cache import quote_cache
+
+    cache_key = "etf_analysis"
+    cached = quote_cache.get(cache_key)
+    if cached:
+        return cached
+
+    def fetch_etf(sym: str):
+        try:
+            hist = yf.Ticker(sym).history(period="2d")
+            if hist.empty or len(hist) < 2:
+                return sym, None
+            curr = float(hist["Close"].iloc[-1])
+            prev = float(hist["Close"].iloc[-2])
+            pct = (curr - prev) / prev * 100
+            return sym, {"price": curr, "change_pct": pct}
+        except Exception:
+            return sym, None
+
+    data = {}
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {pool.submit(fetch_etf, s): s for s in MAJOR_ETFS}
+        for f in as_completed(futures):
+            sym, d = f.result()
+            if d:
+                data[sym] = d
+
+    if not data:
+        return "ETF 데이터를 가져올 수 없습니다."
+
+    sorted_etfs = sorted(data.items(), key=lambda x: x[1]["change_pct"], reverse=True)
+
+    lines = ["<b>📦 주요 ETF 현황</b>\n"]
+    ai_parts = []
+    for sym, d in sorted_etfs:
+        name = MAJOR_ETFS.get(sym, sym)
+        holdings = ETF_TOP_HOLDINGS.get(sym, "")
+        sign = "+" if d["change_pct"] >= 0 else ""
+        icon = "▲" if d["change_pct"] >= 0 else "▼"
+        lines.append(f"{icon} <b>{sym}</b> ({name}) {sign}{d['change_pct']:.2f}% | ${d['price']:.1f}")
+        if holdings:
+            lines.append(f"   구성: {holdings}")
+        ai_parts.append(f"{sym}({name}): {sign}{d['change_pct']:.2f}%")
+
+    # 리스크온/리스크오프 판단
+    spy_pct = data.get("SPY", {}).get("change_pct", 0)
+    tlt_pct = data.get("TLT", {}).get("change_pct", 0)
+    gld_pct = data.get("GLD", {}).get("change_pct", 0)
+
+    prompt = f"""You are an ETF strategist for Korean retail investors.
+In Korean, briefly analyze (max 300 chars):
+1. 리스크온/리스크오프 판단 (SPY {spy_pct:.1f}%, TLT {tlt_pct:.1f}%, GLD {gld_pct:.1f}% 기반)
+2. 한국 투자자가 지금 주목할 ETF 1개 + 이유
+3. 피해야 할 ETF 1개 + 이유
+Korean only.
+
+ETF data: {', '.join(ai_parts[:6])}"""
+
+    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=380)
+    result = "\n".join(lines) + "\n\n" + ai
+    quote_cache.set(cache_key, result)
+    return result

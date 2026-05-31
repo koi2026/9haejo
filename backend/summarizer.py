@@ -175,9 +175,24 @@ Header: <b>📋 내일 {date} 투자 체크리스트</b>
 
     client = get_client()
     raw = claude_call_with_retry(client, "claude-opus-4-5", prompt, max_tokens=2500)
-    tweets = [t.strip() for t in raw.split("---") if t.strip()][:5]
+    tweets_raw = [t.strip() for t in raw.split("---") if t.strip()][:5]
+
+    # 각 메시지 후처리: 길이 제한 + 번호 태그 보장 + 구독 링크
+    LABELS = ["마감 브리핑", "섹터 분석", "주목 종목", "한국 영향", "내일 플레이북"]
+    tweets = []
+    for i, msg in enumerate(tweets_raw):
+        # 4096자 텔레그램 한도 내 자르기 (안전하게)
+        if len(msg) > 3800:
+            msg = msg[:3790] + "..."
+        # 마지막 메시지에 구독 링크가 없으면 추가
+        if i == 4 and "@goohaejo_bot" not in msg:
+            msg = msg.rstrip() + "\n\n구독: @goohaejo_bot"
+        tweets.append(msg)
+
     while len(tweets) < 5:
-        tweets.append(f"[{len(tweets)+1}/5] 분석 준비 중...")
+        i = len(tweets)
+        label = LABELS[i] if i < len(LABELS) else f"파트 {i+1}"
+        tweets.append(f"[{i+1}/5] {label}: 데이터 분석 중...")
 
     return {"tweets": tweets, "raw": raw, "date": date,
             "meta": {"sp500": sp500_pct, "nasdaq": nasdaq_pct,
