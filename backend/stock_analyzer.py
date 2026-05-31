@@ -708,3 +708,190 @@ def get_price_chart(ticker: str, days: int = 30) -> str:
         return result
     except Exception as e:
         return f"{ticker} 차트 조회 실패: {e}"
+
+
+# ── 섹터 ETF 분석 ────────────────────────────────────────────────
+SECTOR_ETFS = {
+    "XLK": "기술",
+    "XLF": "금융",
+    "XLE": "에너지",
+    "XLV": "헬스케어",
+    "XLC": "커뮤니케이션",
+    "XLI": "산업재",
+    "XLY": "경기소비재",
+    "XLP": "필수소비재",
+    "XLRE": "부동산",
+    "XLB": "소재",
+    "XLU": "유틸리티",
+}
+
+SECTOR_KR_STOCKS = {
+    "XLK": "삼성전자, SK하이닉스, 네이버",
+    "XLF": "카카오뱅크, 신한지주, KB금융",
+    "XLE": "S-Oil, SK이노베이션",
+    "XLV": "삼성바이오로직스, 셀트리온",
+    "XLC": "카카오, NAVER, LG유플러스",
+    "XLI": "현대차, 기아, LG전자",
+    "XLY": "현대차, 기아, 롯데쇼핑",
+    "XLP": "CJ제일제당, 농심",
+    "XLRE": "삼성물산, GS건설",
+    "XLB": "POSCO홀딩스, LG화학",
+    "XLU": "한국전력, 한국가스공사",
+}
+
+
+def analyze_sectors() -> str:
+    """SPDR 섹터 ETF 현황 + 섹터 로테이션 AI 분석"""
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from cache import quote_cache
+
+    cache_key = "sector_analysis"
+    cached = quote_cache.get(cache_key)
+    if cached:
+        return cached
+
+    def fetch_etf(sym: str):
+        try:
+            t = yf.Ticker(sym)
+            hist = t.history(period="2d")
+            if hist.empty or len(hist) < 2:
+                return sym, None
+            prev = float(hist["Close"].iloc[-2])
+            curr = float(hist["Close"].iloc[-1])
+            pct = (curr - prev) / prev * 100
+            return sym, {"price": curr, "change_pct": pct}
+        except Exception:
+            return sym, None
+
+    etf_data = {}
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {pool.submit(fetch_etf, sym): sym for sym in SECTOR_ETFS}
+        for f in as_completed(futures):
+            sym, data = f.result()
+            if data:
+                etf_data[sym] = data
+
+    if not etf_data:
+        return "섹터 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해주세요."
+
+    # 성과 순으로 정렬
+    sorted_etfs = sorted(etf_data.items(), key=lambda x: x[1]["change_pct"], reverse=True)
+
+    def bar(pct: float) -> str:
+        blocks = min(abs(int(pct // 0.3)), 8)
+        filled = chr(9608) * blocks  # '█'
+        empty = chr(9617) * (8 - blocks)  # '░'
+        sign = "+" if pct >= 0 else ""
+        return f"{filled}{empty} {sign}{pct:.2f}%"
+
+    lines = ["<b>📊 섹터 ETF 성적표</b>\n"]
+    data_for_ai = []
+    for sym, d in sorted_etfs:
+        name = SECTOR_ETFS.get(sym, sym)
+        b = bar(d["change_pct"])
+        icon = "▲" if d["change_pct"] >= 0 else "▼"
+        lines.append(f"<code>{name[:4]:<4} {b}</code>")
+        data_for_ai.append(f"{sym}({name}): {'+' if d['change_pct']>=0 else ''}{d['change_pct']:.2f}%")
+
+    header = "\n".join(lines) + "\n"
+
+    # 1위/꼴찌 섹터
+    top_sym, top_d = sorted_etfs[0]
+    bot_sym, bot_d = sorted_etfs[-1]
+    top_name = SECTOR_ETFS[top_sym]
+    bot_name = SECTOR_ETFS[bot_sym]
+    top_kr = SECTOR_KR_STOCKS.get(top_sym, "")
+    bot_kr = SECTOR_KR_STOCKS.get(bot_sym, "")
+
+    prompt = f"""You are a sector rotation expert analyst for Korean retail investors.
+Given today's US sector ETF performance, analyze in Korean (max 400 chars):
+1. Why the top sector ({top_name} +{top_d['change_pct']:.2f}%) is leading — specific catalyst
+2. Why the bottom sector ({bot_name} {bot_d['change_pct']:.2f}%) is lagging — specific reason
+3. One actionable sentence for Korean investors considering {top_kr} (top) and {bot_kr} (bottom)
+
+Be specific with numbers. Korean only.
+
+All sectors: {', '.join(data_for_ai)}"""
+
+    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=500)
+    result = header + "\n" + ai
+    quote_cache.set(cache_key, result)
+    return result
+
+
+# ── 52주 신고가/신저가 스캐너 ─────────────────────────────────────
+WATCHLIST_50 = [
+    "AAPL","MSFT","NVDA","GOOGL","AMZN","META","TSLA","BRK-B","JPM","V",
+    "UNH","XOM","JNJ","WMT","LLY","MA","PG","AVGO","HD","CVX",
+    "MRK","ABBV","KO","PEP","COST","ADBE","MCD","CRM","BAC","AMD",
+    "ACN","TMO","DHR","LIN","NEE","TXN","QCOM","ORCL","INTC","INTU",
+    "IBM","GS","BLK","AMGN","GILD","REGN","MDLZ","DUK","SO","GE",
+]
+
+
+def scan_52week() -> str:
+    """S&P500 주요 50종목 중 52주 신고가/신저가 5% 이내 종목 스캔"""
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from cache import quote_cache
+
+    cache_key = "scan_52w"
+    cached = quote_cache.get(cache_key)
+    if cached:
+        return cached
+
+    near_high = []
+    near_low = []
+
+    def check_ticker(sym: str):
+        try:
+            t = yf.Ticker(sym)
+            info = t.info
+            curr = info.get("currentPrice") or info.get("regularMarketPrice")
+            h52 = info.get("fiftyTwoWeekHigh")
+            l52 = info.get("fiftyTwoWeekLow")
+            if not curr or not h52 or not l52:
+                return sym, None
+            pct_from_high = (curr - h52) / h52 * 100  # 음수
+            pct_from_low = (curr - l52) / l52 * 100   # 양수
+            return sym, {"price": curr, "h52": h52, "l52": l52,
+                         "pct_from_high": pct_from_high, "pct_from_low": pct_from_low}
+        except Exception:
+            return sym, None
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(check_ticker, s): s for s in WATCHLIST_50[:30]}
+        for f in as_completed(futures):
+            sym, data = f.result()
+            if not data:
+                continue
+            if data["pct_from_high"] >= -5:  # 고가 5% 이내
+                near_high.append((sym, data))
+            elif data["pct_from_low"] <= 5:  # 저가 5% 이내
+                near_low.append((sym, data))
+
+    near_high.sort(key=lambda x: x[1]["pct_from_high"], reverse=True)
+    near_low.sort(key=lambda x: x[1]["pct_from_low"])
+
+    lines = ["<b>📈 52주 신고가 근접 (5% 이내)</b>"]
+    if near_high:
+        for sym, d in near_high[:5]:
+            pct = d["pct_from_high"]
+            lines.append(f"  {sym}: ${d['price']:.1f} | 고가 ${d['h52']:.1f} ({pct:.1f}%)")
+    else:
+        lines.append("  해당 종목 없음")
+
+    lines.append("\n<b>📉 52주 신저가 근접 (5% 이내)</b>")
+    if near_low:
+        for sym, d in near_low[:5]:
+            pct = d["pct_from_low"]
+            lines.append(f"  {sym}: ${d['price']:.1f} | 저가 ${d['l52']:.1f} (+{pct:.1f}%)")
+    else:
+        lines.append("  해당 종목 없음")
+
+    lines.append(f"\n<i>S&P500 상위 30종목 기준 | 5분 캐시</i>")
+
+    result = "\n".join(lines)
+    quote_cache.set(cache_key, result)
+    return result
