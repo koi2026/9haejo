@@ -1389,3 +1389,86 @@ Data: {', '.join(ai_parts)}"""
     result = "\n".join(lines) + "\n\n" + ai
     analysis_cache.set(cache_key, result)
     return result
+
+
+RECENT_IPOS = [
+    {"ticker": "RDDT", "name": "Reddit", "ipo_price": 34.0, "ipo_date": "2024-03"},
+    {"ticker": "ARM", "name": "Arm Holdings", "ipo_price": 51.0, "ipo_date": "2023-09"},
+    {"ticker": "BIRK", "name": "Birkenstock", "ipo_price": 46.0, "ipo_date": "2023-10"},
+    {"ticker": "KVYO", "name": "Klaviyo", "ipo_price": 30.0, "ipo_date": "2023-09"},
+    {"ticker": "CART", "name": "Instacart", "ipo_price": 30.0, "ipo_date": "2023-09"},
+    {"ticker": "CHWY", "name": "Chewy", "ipo_price": 22.0, "ipo_date": "2019-06"},
+    {"ticker": "HOOD", "name": "Robinhood", "ipo_price": 38.0, "ipo_date": "2021-07"},
+    {"ticker": "COIN", "name": "Coinbase", "ipo_price": 381.0, "ipo_date": "2021-04"},
+    {"ticker": "PLTR", "name": "Palantir", "ipo_price": 10.0, "ipo_date": "2020-09"},
+    {"ticker": "ABNB", "name": "Airbnb", "ipo_price": 146.0, "ipo_date": "2020-12"},
+]
+
+
+def get_ipo_calendar() -> str:
+    """최근 IPO + 상장 예정 종목 정보"""
+    from cache import analysis_cache
+    from collector import yf_quote
+    import concurrent.futures
+
+    cache_key = "ipo_calendar"
+    cached = analysis_cache.get(cache_key)
+    if cached:
+        return cached
+
+    def fetch_one(ipo):
+        q = yf_quote(ipo["ticker"])
+        return ipo, q
+
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(fetch_one, ipo): ipo for ipo in RECENT_IPOS}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                ipo, q = future.result()
+                results.append((ipo, q))
+            except Exception as e:
+                logger.warning("IPO fetch error: %s", e)
+
+    # Sort by IPO date descending
+    results.sort(key=lambda x: x[0]["ipo_date"], reverse=True)
+
+    lines = ["<b>📋 주요 IPO 종목 현황</b>\n"]
+    ai_parts = []
+
+    for ipo, q in results:
+        ticker = ipo["ticker"]
+        name = ipo["name"]
+        ipo_price = ipo["ipo_price"]
+        ipo_date = ipo["ipo_date"]
+
+        if q:
+            current = q["price"]
+            gain = (current - ipo_price) / ipo_price * 100
+            sign = "+" if gain >= 0 else ""
+            icon = "🟢" if gain >= 0 else "🔴"
+            day_sign = "+" if q["change_pct"] >= 0 else ""
+            lines.append(
+                f"{icon} <b>{ticker}</b> ({name})\n"
+                f"   IPO {ipo_date} · 공모가 ${ipo_price:.0f}\n"
+                f"   현재 ${current:,.2f} ({sign}{gain:.1f}%) · 오늘 {day_sign}{q['change_pct']:.2f}%"
+            )
+            ai_parts.append(f"{ticker}:{sign}{gain:.1f}%")
+        else:
+            lines.append(f"⚪ <b>{ticker}</b> ({name}) — 데이터 없음")
+
+    if not ai_parts:
+        return "IPO 데이터를 가져올 수 없습니다."
+
+    prompt = f"""You are a Korean stock market expert for retail investors.
+In Korean (max 350 chars, no investment advice warning needed):
+1. IPO 이후 수익률이 높은/낮은 종목의 공통점은?
+2. 현재 IPO 시장 트렌드 한 줄
+3. 한국 투자자에게 주목할 만한 종목 1개와 이유
+
+Data: {', '.join(ai_parts)}"""
+
+    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=400)
+    result = "\n".join(lines) + "\n\n" + ai
+    analysis_cache.set(cache_key, result)
+    return result
