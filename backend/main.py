@@ -112,6 +112,42 @@ def run_summary_job():
 _scheduler = BackgroundScheduler(timezone=pytz.utc)
 
 
+def send_realtime_updates():
+    """실시간 추적 종목 가격 업데이트 (매 5분)"""
+    try:
+        from realtime_tracker import get_all_trackers, update_prev_price, remove_tracker
+        from collector import yf_quote
+        from bot import send
+        all_trackers = get_all_trackers()
+        for chat_id, tickers in all_trackers.items():
+            for ticker, info in list(tickers.items()):
+                try:
+                    q = yf_quote(ticker)
+                    if not q:
+                        continue
+                    price = q["price"]
+                    prev = info.get("prev_price", price)
+                    start = info.get("start_price", price)
+                    name = info.get("name", ticker)
+                    change_from_prev = (price - prev) / prev * 100 if prev else 0
+                    change_from_start = (price - start) / start * 100 if start else 0
+                    arrow = "▲" if q["change_pct"] >= 0 else "▼"
+                    move = "+" if change_from_prev >= 0 else ""
+                    msg = (
+                        f"📡 <b>{name} ({ticker})</b> 5분 업데이트\n\n"
+                        f"현재가: <b>${price:,.2f}</b> {arrow}{abs(q['change_pct']):.2f}%\n"
+                        f"5분 변동: {move}{change_from_prev:.2f}%\n"
+                        f"추적 시작 대비: {'+' if change_from_start >= 0 else ''}{change_from_start:.2f}%\n\n"
+                        f"<i>/실시간 중지 — 추적 중단</i>"
+                    )
+                    send(chat_id, msg)
+                    update_prev_price(chat_id, ticker, price)
+                except Exception as e:
+                    logger.error("realtime update error %s/%s: %s", chat_id, ticker, e)
+    except Exception as e:
+        logger.error("send_realtime_updates error: %s", e)
+
+
 def check_user_alarms():
     """사용자 개인 알람 체크 (매 1분) — user_settings.alarm_time (KST HH:MM)"""
     import datetime, pytz as _pytz
@@ -252,8 +288,15 @@ def startup_scheduler():
         id="user_alarms",
         replace_existing=True,
     )
+    # 실시간 추적 업데이트: 매 5분
+    _scheduler.add_job(
+        send_realtime_updates,
+        IntervalTrigger(minutes=5),
+        id="realtime_updates",
+        replace_existing=True,
+    )
     _scheduler.start()
-    logger.info("Scheduler started: daily_briefing + price_alerts + user_alarms")
+    logger.info("Scheduler started: daily_briefing + price_alerts + user_alarms + realtime_updates")
 
 
 @app.on_event("shutdown")

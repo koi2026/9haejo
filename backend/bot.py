@@ -1113,6 +1113,65 @@ def handle_update(update: dict):
                 logger.error("gainers/losers error: %s", e)
                 send(chat_id, "조회 중 오류가 발생했어요.")
 
+        # ── /실시간 — 종목 실시간 5분 추적 ─────────────
+        elif cmd in ["/실시간", "/live", "/추적"]:
+            parts = text.split()
+            sub_cmd = parts[1].lower() if len(parts) > 1 else ""
+            from realtime_tracker import add_tracker, remove_tracker, get_trackers
+            from stock_analyzer import resolve_ticker
+            from collector import yf_quote
+            import yfinance as yf
+
+            if sub_cmd in ["중지", "stop", "off", "취소", "끄기"]:
+                remove_tracker(chat_id)
+                send(chat_id, "⏹ 실시간 추적을 모두 중지했습니다.")
+            elif sub_cmd and sub_cmd not in ["중지", "stop"]:
+                raw = parts[1].upper()
+                ticker = resolve_ticker(raw) or (raw if raw.isalpha() and len(raw) <= 6 else None)
+                if not ticker:
+                    send(chat_id, "❓ 종목 티커를 입력해주세요.\n예: /실시간 NVDA")
+                else:
+                    quote = yf_quote(ticker)
+                    if not quote:
+                        send(chat_id, f"❌ <b>{ticker}</b> 시세를 가져올 수 없습니다.")
+                    else:
+                        try:
+                            info = yf.Ticker(ticker).fast_info
+                            name = getattr(info, "display_name", None) or ticker
+                        except Exception:
+                            name = ticker
+                        count = add_tracker(chat_id, ticker, name, quote["price"])
+                        arrow = "▲" if quote["change_pct"] >= 0 else "▼"
+                        send(chat_id, (
+                            f"📡 <b>{name} ({ticker})</b> 실시간 추적 시작!\n\n"
+                            f"현재가: <b>${quote['price']:,.2f}</b> {arrow}{abs(quote['change_pct']):.2f}%\n"
+                            f"5분마다 가격 업데이트를 받습니다.\n\n"
+                            f"활성 추적: {count}개\n"
+                            f"/실시간 중지 — 추적 중단"
+                        ))
+            else:
+                trackers = get_trackers(chat_id)
+                if not trackers:
+                    send(chat_id, (
+                        "📡 <b>실시간 종목 추적</b>\n\n"
+                        "5분마다 가격 업데이트를 받아보세요.\n\n"
+                        "사용법:\n"
+                        "/실시간 NVDA — NVIDIA 추적 시작\n"
+                        "/실시간 TSLA — Tesla 추적 시작\n"
+                        "/실시간 중지 — 모두 중단"
+                    ))
+                else:
+                    lines = ["<b>📡 현재 추적 중인 종목</b>\n"]
+                    for t, info in trackers.items():
+                        q = yf_quote(t)
+                        if q:
+                            arrow = "▲" if q["change_pct"] >= 0 else "▼"
+                            lines.append(f"• <b>{t}</b>: ${q['price']:,.2f} {arrow}{abs(q['change_pct']):.2f}%")
+                        else:
+                            lines.append(f"• <b>{t}</b>: 조회 실패")
+                    lines.append("\n/실시간 중지 — 추적 중단")
+                    send(chat_id, "\n".join(lines))
+
         # ── 종목 분석 (자유 텍스트) ──────────────────
         else:
             # 너무 짧거나 명백히 커맨드처럼 보이면 무시
