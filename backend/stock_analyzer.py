@@ -1231,3 +1231,161 @@ ETF data: {', '.join(ai_parts[:6])}"""
     result = "\n".join(lines) + "\n\n" + ai
     quote_cache.set(cache_key, result)
     return result
+
+
+# ── 미국 국채금리 분석 ────────────────────────────────────────────
+TREASURY_TICKERS = {
+    "2년물": "^IRX",    # 13주 T-Bill (2년 근사)
+    "10년물": "^TNX",   # 10년 국채
+    "30년물": "^TYX",   # 30년 국채
+}
+
+
+def analyze_interest_rates() -> str:
+    """미국 국채금리 + 수익률 곡선 + 연준 AI 분석"""
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from cache import quote_cache
+
+    cache_key = "rates_analysis"
+    cached = quote_cache.get(cache_key)
+    if cached:
+        return cached
+
+    def fetch_rate(label: str, sym: str):
+        try:
+            hist = yf.Ticker(sym).history(period="5d")
+            if hist.empty:
+                return label, None
+            curr = float(hist["Close"].iloc[-1])
+            prev = float(hist["Close"].iloc[-2]) if len(hist) >= 2 else curr
+            chg = curr - prev
+            return label, {"rate": curr, "change": chg}
+        except Exception:
+            return label, None
+
+    rates = {}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {pool.submit(fetch_rate, label, sym): label for label, sym in TREASURY_TICKERS.items()}
+        for f in as_completed(futures):
+            label, d = f.result()
+            if d:
+                rates[label] = d
+
+    if not rates:
+        return "국채금리 데이터를 가져올 수 없습니다."
+
+    lines = ["<b>📈 미국 국채금리 현황</b>\n"]
+    rate_data_for_ai = []
+    for label in ["2년물", "10년물", "30년물"]:
+        d = rates.get(label)
+        if d:
+            sign = "+" if d["change"] >= 0 else ""
+            icon = "▲" if d["change"] >= 0 else "▼"
+            lines.append(f"{icon} <b>{label}</b>: {d['rate']:.3f}% ({sign}{d['change']:.3f}%p)")
+            rate_data_for_ai.append(f"{label}={d['rate']:.3f}%")
+
+    # 수익률 곡선 판단
+    r2 = rates.get("2년물", {}).get("rate", 0)
+    r10 = rates.get("10년물", {}).get("rate", 0)
+    r30 = rates.get("30년물", {}).get("rate", 0)
+    spread = r10 - r2
+    curve_status = "역전 (경기침체 신호)" if spread < 0 else "정상" if spread > 0.5 else "평탄화"
+    lines.append(f"\n수익률 곡선: <b>{curve_status}</b> (2-10년 스프레드: {spread:+.3f}%p)")
+
+    prompt = f"""You are a fixed income expert for Korean retail investors.
+Analyze in Korean (max 380 chars):
+1. 현재 금리 수준이 주식시장에 미치는 영향 (특히 성장주 vs 가치주)
+2. 수익률 곡선 {curve_status} 의미 + 경기전망
+3. 한국 투자자 관점: 달러예금/채권 vs 주식 중 어느 쪽이 유리?
+Korean only.
+
+Rates: {', '.join(rate_data_for_ai)}, spread={spread:+.3f}%p"""
+
+    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=450)
+    result = "\n".join(lines) + "\n\n" + ai
+    quote_cache.set(cache_key, result)
+    return result
+
+
+# ── 원자재 분석 ────────────────────────────────────────────────
+COMMODITY_TICKERS = {
+    "WTI 원유": "CL=F",
+    "브렌트유": "BZ=F",
+    "금": "GC=F",
+    "은": "SI=F",
+    "구리": "HG=F",
+    "천연가스": "NG=F",
+}
+
+COMMODITY_KR_IMPACT = {
+    "WTI 원유": "SK이노베이션, S-Oil, GS칼텍스",
+    "브렌트유": "정유주 전반",
+    "금": "한국금거래소, 금 ETF",
+    "은": "솔라시도, 전기차 배터리주",
+    "구리": "LS전선, 풍산, 전기차 관련주",
+    "천연가스": "한국가스공사, LNG 관련",
+}
+
+
+def analyze_commodities() -> str:
+    """원자재 현황 + 한국 관련주 영향 AI 분석"""
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from cache import quote_cache
+
+    cache_key = "commodity_analysis"
+    cached = quote_cache.get(cache_key)
+    if cached:
+        return cached
+
+    def fetch_commodity(label: str, sym: str):
+        try:
+            hist = yf.Ticker(sym).history(period="2d")
+            if hist.empty or len(hist) < 2:
+                return label, None
+            curr = float(hist["Close"].iloc[-1])
+            prev = float(hist["Close"].iloc[-2])
+            pct = (curr - prev) / prev * 100
+            return label, {"price": curr, "change_pct": pct}
+        except Exception:
+            return label, None
+
+    data = {}
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {pool.submit(fetch_commodity, label, sym): label for label, sym in COMMODITY_TICKERS.items()}
+        for f in as_completed(futures):
+            label, d = f.result()
+            if d:
+                data[label] = d
+
+    if not data:
+        return "원자재 데이터를 가져올 수 없습니다."
+
+    sorted_comms = sorted(data.items(), key=lambda x: x[1]["change_pct"], reverse=True)
+    lines = ["<b>🛢 원자재 현황</b>\n"]
+    ai_parts = []
+    for label, d in sorted_comms:
+        sign = "+" if d["change_pct"] >= 0 else ""
+        icon = "▲" if d["change_pct"] >= 0 else "▼"
+        kr = COMMODITY_KR_IMPACT.get(label, "")
+        lines.append(f"{icon} <b>{label}</b>: ${d['price']:.2f} ({sign}{d['change_pct']:.2f}%)")
+        if kr:
+            lines.append(f"   관련주: {kr}")
+        ai_parts.append(f"{label}:{sign}{d['change_pct']:.1f}%")
+
+    # 가장 크게 움직인 것
+    top = sorted_comms[0]
+    prompt = f"""You are a commodity expert for Korean retail investors.
+In Korean (max 320 chars):
+1. {top[0]} 가 {top[1]['change_pct']:+.1f}% 움직인 이유 + 한국 {COMMODITY_KR_IMPACT.get(top[0],'')} 영향
+2. 지금 원자재 시장 전반 분위기 (인플레이션/디플레이션?)
+3. 한국 투자자 주목 종목 1개
+Korean only.
+
+Data: {', '.join(ai_parts)}"""
+
+    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=400)
+    result = "\n".join(lines) + "\n\n" + ai
+    quote_cache.set(cache_key, result)
+    return result

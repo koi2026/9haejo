@@ -1049,13 +1049,31 @@ export default function Home() {
           <div style={{ padding: "36px", borderRadius: 20, background: C.card, border: `1px solid rgba(0,217,126,0.2)` }}>
             {subState === "done" ? (
               <div style={{ textAlign: "center", padding: "20px 0" }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-                <h3 style={{ fontSize: 22, fontWeight: 900, color: C.green, marginBottom: 8 }}>구독 완료!</h3>
-                <p style={{ color: C.muted }}>{subMsg}</p>
-                <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
-                  style={{ display: "inline-block", marginTop: 20, padding: "12px 28px", borderRadius: 12, background: C.grad, color: "#07070f", fontWeight: 800, textDecoration: "none" }}>
-                  텔레그램 열기 →
-                </a>
+                <div style={{ fontSize: 56, marginBottom: 12 }}>🎉</div>
+                <h3 style={{ fontSize: 24, fontWeight: 900, color: C.green, marginBottom: 8 }}>구독 완료!</h3>
+                <p style={{ color: C.muted, marginBottom: 20 }}>{subMsg}</p>
+                <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                  <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+                    style={{ padding: "12px 24px", borderRadius: 12, background: C.grad, color: "#07070f", fontWeight: 800, textDecoration: "none", fontSize: 14 }}>
+                    텔레그램 열기 →
+                  </a>
+                  <button onClick={() => {
+                    const shareText = "미국 증시 AI 브리핑 서비스 구해조! 매일 오전 8시 텔레그램으로 받아보세요 👉 https://9haejo.vercel.app";
+                    if (navigator.share) {
+                      navigator.share({ title: "구해조", text: shareText, url: "https://9haejo.vercel.app" });
+                    } else {
+                      navigator.clipboard.writeText(shareText).then(() => alert("링크가 복사되었습니다!"));
+                    }
+                  }} style={{ padding: "12px 24px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                    친구에게 공유 📤
+                  </button>
+                </div>
+                <div style={{ marginTop: 20, padding: "14px 16px", borderRadius: 12, background: "#08081a", border: `1px solid ${C.green}30` }}>
+                  <p style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>👀 다음에 할 것</p>
+                  <p style={{ fontSize: 13, color: C.text }}>
+                    텔레그램에서 <code style={{ background: "#1a1a2e", padding: "2px 6px", borderRadius: 4, color: C.green }}>/watchlist add NVDA</code> 로 관심종목 추가하기
+                  </p>
+                </div>
               </div>
             ) : (
               <>

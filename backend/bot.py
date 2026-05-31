@@ -727,6 +727,28 @@ def handle_update(update: dict):
                 logger.error("momentum error: %s", e)
                 send(chat_id, "모멘텀 스캔 중 오류가 발생했어요.")
 
+        # ── /금리 ────────────────────────────────────
+        elif cmd in ["/금리", "/rate", "/rates", "/국채"]:
+            send(chat_id, "📈 미국 국채금리 분석 중...")
+            try:
+                from stock_analyzer import analyze_interest_rates
+                result = analyze_interest_rates()
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("rates error: %s", e)
+                send(chat_id, "금리 분석 중 오류가 발생했어요.")
+
+        # ── /원자재 ──────────────────────────────────
+        elif cmd in ["/원자재", "/commodity", "/원자", "/오일", "/금값"]:
+            send(chat_id, "🛢 원자재 시세 분석 중...")
+            try:
+                from stock_analyzer import analyze_commodities
+                result = analyze_commodities()
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("commodity error: %s", e)
+                send(chat_id, "원자재 분석 중 오류가 발생했어요.")
+
         # ── /ETF ─────────────────────────────────────
         elif cmd in ["/etf", "/ETF", "/이티에프"]:
             send(chat_id, "📦 주요 ETF 분석 중...")
