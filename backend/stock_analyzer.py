@@ -320,15 +320,27 @@ def summarize_news(ticker: str = "") -> str:
             raw_news = t.news or []
             if not raw_news:
                 return f"{ticker} 관련 뉴스를 찾을 수 없습니다."
+            # 가격 정보도 함께 가져오기
+            q = fetch_quote(ticker)
+            price_ctx = f"{ticker} 현재가: ${q['price']:.2f} ({'+' if q['change_pct']>=0 else ''}{q['change_pct']:.2f}%)\n" if q else ""
             news_text = "\n".join([
                 f"- {item.get('content',{}).get('title', item.get('title',''))}"
-                for item in raw_news[:6]
+                for item in raw_news[:5]
             ])
-            prompt = f"""Summarize these {ticker} news headlines in Korean for retail investors.
-Use emojis. 1-2 sentences each. Include buy/sell/hold implications. MAX 500 chars total.
-News:
+            prompt = f"""You are a sharp Korean financial analyst. Analyze these {ticker} news for Korean retail investors.
+{price_ctx}
+For EACH headline: write one Korean sentence with SPECIFIC numbers/facts + 🟢호재/🔴악재/🟡중립 tag.
+End with: "투자 포인트: [1 actionable sentence for Korean investors]"
+Korean only. Max 550 chars total.
+
+Headlines:
 {news_text}"""
-            result = f"📰 <b>{ticker} 뉴스 요약</b>\n\n" + claude_call("claude-haiku-4-5", prompt, max_tokens=600)
+            result = (
+                f"📰 <b>{ticker} 뉴스 분석</b>"
+                + (f"\n현재가 <b>${q['price']:.2f}</b> ({'+' if q['change_pct']>=0 else ''}{q['change_pct']:.2f}%)" if q else "")
+                + "\n\n"
+                + claude_call("claude-haiku-4-5", prompt, max_tokens=600)
+            )
             news_cache.set(cache_key, result)
             return result
         except Exception as e:
@@ -344,29 +356,32 @@ News:
     if not news:
         return "뉴스 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해주세요."
 
+    # 감성별 분류
+    bullish = [n for n in news if n.get("sentiment") == "Bullish"][:2]
+    bearish = [n for n in news if n.get("sentiment") == "Bearish"][:2]
+    neutral = [n for n in news if n.get("sentiment") not in ("Bullish","Bearish")][:2]
+    ordered_news = bullish + bearish + neutral
+
     news_text = "\n".join([
-        f"- [{item['sentiment']}] {item['title']} ({item['source']})"
-        for item in news[:6]
+        f"- [{item['sentiment']}] {item['title']}"
+        for item in ordered_news[:6]
     ])
 
     today_str = __import__('datetime').date.today().strftime('%m/%d')
-    prompt = f"""You are a Korean financial news analyst for retail investors.
-For each news item, write 1 concise Korean line + investment angle (호재/악재/중립).
-Then 1 final line on overall market mood.
-Use emojis. Korean only. Max 650 chars total.
+    prompt = f"""You are a sharp Korean financial analyst for retail investors. Today is {today_str}.
 
-Format:
-<b>📰 {today_str} 월가 뉴스</b>
+Rules (MUST FOLLOW):
+- For EACH news: 1 Korean sentence with SPECIFIC stock name/number if possible + 🟢호재/🔴악재/🟡중립
+- Mention which Korean stocks (삼성전자, SK하이닉스, etc.) could be affected
+- End with: "오늘의 핵심: [1 bold actionable Korean sentence]"
+- Korean only. Max 700 chars total.
 
-[emoji] [one-line Korean summary] — [호재/악재/중립]
-...
----
-📊 종합: [overall mood sentence]
-
-News:
+News (already sentiment-tagged):
 {news_text}"""
 
-    result = claude_call("claude-haiku-4-5", prompt, max_tokens=700)
+    result = claude_call("claude-haiku-4-5", prompt, max_tokens=750)
+    # 헤더 추가
+    result = f"📰 <b>{today_str} 월가 뉴스 분석</b>\n\n" + result
     news_cache.set(today_key, result)
     return result
 
