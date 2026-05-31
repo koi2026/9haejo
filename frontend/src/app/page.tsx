@@ -738,11 +738,28 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-              {/* 공포탐욕 */}
-              <div style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 14, alignSelf: "flex-start" }}>FEAR & GREED</p>
+              {/* 공포탐욕 + VIX */}
+              <div style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2 }}>FEAR & GREED</p>
+                  {marketData.indices["VIX"] && (() => {
+                    const vix = marketData.indices["VIX"];
+                    const vixColor = vix.price >= 30 ? "#ff4466" : vix.price >= 20 ? "#f59e0b" : "#00d97e";
+                    return (
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 10, color: C.muted, fontFamily: "monospace", marginBottom: 2 }}>VIX 공포지수</div>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: vixColor, fontFamily: "monospace" }}>
+                          {vix.price.toFixed(1)}
+                        </div>
+                        <div style={{ fontSize: 10, color: vixColor }}>
+                          {vix.price >= 30 ? "😱 극단공포" : vix.price >= 20 ? "😰 경계" : "😌 안정"}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
                 <FearGauge score={marketData.fear_greed.score} label={marketData.fear_greed.label_kr} />
-                <p style={{ fontSize: 11, color: C.muted, marginTop: 12, textAlign: "center" }}>CNN Fear & Greed Index</p>
+                <p style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>CNN Fear & Greed Index</p>
               </div>
             </div>
           </div>
