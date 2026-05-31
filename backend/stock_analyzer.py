@@ -434,26 +434,52 @@ def analyze_portfolio(tickers: list[str]) -> str:
     if not quotes:
         return "종목 데이터 조회에 실패했습니다. 잠시 후 다시 시도해주세요."
 
-    stock_lines = []
+    # 성과 데이터 계산
+    pcts = [(t, quotes[t].get("change_pct", 0) or 0) for t in tickers[:8] if t in quotes]
+    pcts_sorted = sorted(pcts, key=lambda x: x[1], reverse=True)
+    best = pcts_sorted[0] if pcts_sorted else None
+    worst = pcts_sorted[-1] if pcts_sorted else None
+    up_count = sum(1 for _, p in pcts if p >= 0)
+    down_count = len(pcts) - up_count
+
+    def mini_bar(pct: float) -> str:
+        blocks = min(abs(int(pct // 0.5)), 6)
+        filled = "█" * blocks
+        empty = "░" * (6 - blocks)
+        arrow = "+" if pct >= 0 else ""
+        if pct >= 0:
+            return f"{filled}{empty} {arrow}{pct:.2f}%"
+        else:
+            return f"{empty}{filled} {pct:.2f}%"
+
+    # 종목별 성과 표
+    stock_table_lines = []
     for ticker in tickers[:8]:
         q = quotes.get(ticker)
-        if q:
-            stock_lines.append(
-                f"- {ticker}: ${q['price']:.2f} ({'+' if q['change_pct']>=0 else ''}{q['change_pct']:.2f}%)"
-            )
-    portfolio_text = "\n".join(stock_lines)
+        if not q:
+            continue
+        pct = q.get("change_pct", 0) or 0
+        bar = mini_bar(pct)
+        stock_table_lines.append(f"{ticker:<6} {bar}")
 
+    stock_table = "\n".join(stock_table_lines)
+
+    # AI 프롬프트
+    portfolio_text = "\n".join(
+        f"- {t}: ${quotes[t]['price']:.2f} ({'+' if quotes[t]['change_pct']>=0 else ''}{quotes[t]['change_pct']:.2f}%)"
+        for t in tickers[:8] if t in quotes
+    )
     prompt = f"""You are a portfolio advisor for Korean retail investors.
-For EACH stock below, provide a one-line signal in Korean: BUY(매수)/HOLD(관망)/SELL(매도) with a brief reason.
-Then give a 2-line overall portfolio comment.
-Use emojis: 🟢 buy, 🟡 hold, 🔴 sell. Be concise. Response in Korean only. Max 600 chars total.
+For EACH stock below, give ONE short Korean line: signal emoji + reason.
+Then 2-line 총평.
+Signals: 🟢 매수, 🟡 관망, 🔴 매도
+Max 550 chars total. Korean only.
 
-Format:
-[ticker] 🟢/🟡/🔴 [매수/관망/매도]: [one-line reason in Korean]
+Format exactly:
+[TICKER] 🟢/🟡/🔴: reason
 ...
----
-총평: [2-line overall comment]
-*투자 참고용, 실제 투자 결정은 본인 판단으로*
+
+총평: two-line comment
 
 Holdings:
 {portfolio_text}"""
@@ -461,12 +487,22 @@ Holdings:
     score, grade = portfolio_health_score(quotes)
     score_bar = "█" * (score // 10) + "░" * (10 - score // 10)
     grade_emoji = {"A": "🟢", "B": "🟡", "C": "🟠", "D": "🔴", "F": "⚫"}.get(grade, "⚪")
+
+    best_str = f"{best[0]} {'+' if best[1]>=0 else ''}{best[1]:.2f}%" if best else "N/A"
+    worst_str = f"{worst[0]} {worst[1]:.2f}%" if worst else "N/A"
+
     header = (
-        f"<b>📋 포트폴리오 AI 진단</b>\n\n"
-        f"<b>건강도 점수</b>: {grade_emoji} {score}/100 (등급 {grade})\n"
+        f"<b>📊 포트폴리오 AI 진단</b>\n\n"
+        f"<b>건강도</b>: {grade_emoji} {score}/100 (등급 {grade})\n"
         f"<code>{score_bar}</code>\n\n"
+        f"<b>오늘 성과</b> | 상승 {up_count}개 · 하락 {down_count}개\n"
+        f"<code>{'종목':<6} {'성과 막대':>20}\n"
+        f"{stock_table}</code>\n\n"
+        f"<b>베스트</b>: {best_str}  <b>워스트</b>: {worst_str}\n\n"
+        f"<b>AI 신호</b>\n"
     )
-    return header + claude_call("claude-haiku-4-5", prompt, max_tokens=800)
+    ai_text = claude_call("claude-haiku-4-5", prompt, max_tokens=600)
+    return header + ai_text + "\n\n<i>*투자 참고용. 실제 결정은 본인 판단으로*</i>"
 
 
 def analyze_outlook(ticker: str) -> str:
@@ -613,7 +649,6 @@ def weekly_summary() -> str:
     result = "\n".join(lines)
     quote_cache.set("weekly_summary", result)
     return result
-<<<<<<< HEAD
 
 
 def sparkline(prices: list) -> str:
@@ -658,5 +693,3 @@ def get_price_chart(ticker: str, days: int = 30) -> str:
         return result
     except Exception as e:
         return f"{ticker} 차트 조회 실패: {e}"
-=======
->>>>>>> betterforwhat/main
