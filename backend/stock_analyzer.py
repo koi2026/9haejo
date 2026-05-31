@@ -103,7 +103,7 @@ def resolve_ticker(query: str) -> str:
 
 def fetch_quote(ticker: str) -> dict | None:
     """Alpha Vantage GLOBAL_QUOTE — 현재가, 등락률, 거래량 (60s TTL cached)"""
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
     cached = quote_cache.get(ticker)
     if cached is not None:
         return cached
@@ -557,7 +557,7 @@ Format:
 def analyze_macro() -> str:
     """매크로 시황: 금리/DXY/오일/VIX/금 + AI 한국어 해설"""
     import yfinance as yf
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
 
     cached = quote_cache.get("macro_analysis")
     if cached:
@@ -610,7 +610,7 @@ Data:
 
 def one_line_summary() -> str:
     """오늘 시장 150자 한줄 요약"""
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
     cached = quote_cache.get("one_line")
     if cached:
         return cached
@@ -641,7 +641,7 @@ def one_line_summary() -> str:
 
 def weekly_summary() -> str:
     """이번 주 시장 성적표"""
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
     cached = quote_cache.get("weekly_summary")
     if cached:
         return cached
@@ -679,7 +679,7 @@ def sparkline(prices: list) -> str:
 def get_price_chart(ticker: str, days: int = 30) -> str:
     """종목 가격 스파크라인 + 요약 통계"""
     import yfinance as yf
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
     cache_key = f"chart_{ticker}_{days}"
     cached = quote_cache.get(cache_key)
     if cached:
@@ -744,10 +744,10 @@ def analyze_sectors() -> str:
     """SPDR 섹터 ETF 현황 + 섹터 로테이션 AI 분석"""
     import yfinance as yf
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
 
     cache_key = "sector_analysis"
-    cached = quote_cache.get(cache_key)
+    cached = analysis_cache.get(cache_key)
     if cached:
         return cached
 
@@ -816,7 +816,7 @@ All sectors: {', '.join(data_for_ai)}"""
 
     ai = claude_call("claude-haiku-4-5", prompt, max_tokens=500)
     result = header + "\n" + ai
-    quote_cache.set(cache_key, result)
+    analysis_cache.set(cache_key, result)
     return result
 
 
@@ -834,10 +834,10 @@ def scan_52week() -> str:
     """S&P500 주요 50종목 중 52주 신고가/신저가 5% 이내 종목 스캔"""
     import yfinance as yf
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
 
     cache_key = "scan_52w"
-    cached = quote_cache.get(cache_key)
+    cached = analysis_cache.get(cache_key)
     if cached:
         return cached
 
@@ -893,7 +893,7 @@ def scan_52week() -> str:
     lines.append(f"\n<i>S&P500 상위 30종목 기준 | 5분 캐시</i>")
 
     result = "\n".join(lines)
-    quote_cache.set(cache_key, result)
+    analysis_cache.set(cache_key, result)
     return result
 
 
@@ -906,10 +906,10 @@ def analyze_dividend_stocks() -> str:
     """고배당 종목 스크리너: 배당수익률 상위 + AI 분석"""
     import yfinance as yf
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
 
     cache_key = "dividend_analysis"
-    cached = quote_cache.get(cache_key)
+    cached = analysis_cache.get(cache_key)
     if cached:
         return cached
 
@@ -964,7 +964,7 @@ Data: {', '.join(ai_data[:6])}"""
 
     ai = claude_call("claude-haiku-4-5", prompt, max_tokens=450)
     result = "\n".join(lines) + "\n\n" + ai + "\n\n<i>*배당 투자는 장기 보유 기준. 세금 고려 필수*</i>"
-    quote_cache.set(cache_key, result)
+    analysis_cache.set(cache_key, result)
     return result
 
 
@@ -981,10 +981,10 @@ def analyze_momentum() -> str:
     import yfinance as yf
     import numpy as np
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
 
     cache_key = "momentum_scan"
-    cached = quote_cache.get(cache_key)
+    cached = analysis_cache.get(cache_key)
     if cached:
         return cached
 
@@ -1065,7 +1065,7 @@ Data: {', '.join(f"{s} RSI{top_data[s]['rsi']} vol{top_data[s]['vol_ratio']}x" f
 
     ai = claude_call("claude-haiku-4-5", prompt, max_tokens=400)
     result = "\n".join(lines) + "\n\n" + ai + "\n\n<i>*스크리너는 참고용. 손절선 설정 필수*</i>"
-    quote_cache.set(cache_key, result)
+    analysis_cache.set(cache_key, result)
     return result
 
 
@@ -1169,10 +1169,10 @@ def analyze_etfs() -> str:
     """주요 ETF 현황 + AI 분석"""
     import yfinance as yf
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
 
     cache_key = "etf_analysis"
-    cached = quote_cache.get(cache_key)
+    cached = analysis_cache.get(cache_key)
     if cached:
         return cached
 
@@ -1229,7 +1229,7 @@ ETF data: {', '.join(ai_parts[:6])}"""
 
     ai = claude_call("claude-haiku-4-5", prompt, max_tokens=380)
     result = "\n".join(lines) + "\n\n" + ai
-    quote_cache.set(cache_key, result)
+    analysis_cache.set(cache_key, result)
     return result
 
 
@@ -1245,10 +1245,10 @@ def analyze_interest_rates() -> str:
     """미국 국채금리 + 수익률 곡선 + 연준 AI 분석"""
     import yfinance as yf
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
 
     cache_key = "rates_analysis"
-    cached = quote_cache.get(cache_key)
+    cached = analysis_cache.get(cache_key)
     if cached:
         return cached
 
@@ -1304,7 +1304,7 @@ Rates: {', '.join(rate_data_for_ai)}, spread={spread:+.3f}%p"""
 
     ai = claude_call("claude-haiku-4-5", prompt, max_tokens=450)
     result = "\n".join(lines) + "\n\n" + ai
-    quote_cache.set(cache_key, result)
+    analysis_cache.set(cache_key, result)
     return result
 
 
@@ -1332,10 +1332,10 @@ def analyze_commodities() -> str:
     """원자재 현황 + 한국 관련주 영향 AI 분석"""
     import yfinance as yf
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from cache import quote_cache
+    from cache import quote_cache, analysis_cache
 
     cache_key = "commodity_analysis"
-    cached = quote_cache.get(cache_key)
+    cached = analysis_cache.get(cache_key)
     if cached:
         return cached
 
@@ -1387,5 +1387,5 @@ Data: {', '.join(ai_parts)}"""
 
     ai = claude_call("claude-haiku-4-5", prompt, max_tokens=400)
     result = "\n".join(lines) + "\n\n" + ai
-    quote_cache.set(cache_key, result)
+    analysis_cache.set(cache_key, result)
     return result
