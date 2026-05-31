@@ -668,6 +668,40 @@ def handle_update(update: dict):
                     logger.error("news error: %s", e)
                     send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
 
+        # ── /요약 ────────────────────────────────────
+        elif cmd in ["/요약", "/summary", "/지금", "/현재"]:
+            try:
+                from collector import yf_quote, collect_fear_greed
+                from concurrent.futures import ThreadPoolExecutor, as_completed
+                def get(sym): return sym, yf_quote(sym)
+                results = {}
+                with ThreadPoolExecutor(max_workers=5) as pool:
+                    fts = {pool.submit(get, s): s for s in ["^GSPC", "^IXIC", "^VIX", "KRW=X"]}
+                    for ft in as_completed(fts):
+                        sym, q = ft.result()
+                        if q: results[sym] = q
+                fg = collect_fear_greed()
+                sp = results.get("^GSPC", {})
+                nq = results.get("^IXIC", {})
+                vix = results.get("^VIX", {})
+                krw = results.get("KRW=X", {})
+                sp_str = f"S&P500 {'▲' if sp.get('change_pct',0)>=0 else '▼'}{abs(sp.get('change_pct',0)):.2f}%" if sp else "N/A"
+                nq_str = f"NASDAQ {'▲' if nq.get('change_pct',0)>=0 else '▼'}{abs(nq.get('change_pct',0)):.2f}%" if nq else "N/A"
+                vix_str = f"VIX {vix.get('price',0):.1f}" if vix else ""
+                krw_str = f"USD/KRW {round(krw.get('price',0)):,}원" if krw else ""
+                fg_str = f"F&G {fg.get('score','?')}/100 {fg.get('label_kr','')}" if fg else ""
+                mood = "🔴 조심" if (fg.get('score',50) or 50) < 30 else "🟢 긍정" if (fg.get('score',50) or 50) > 65 else "🟡 중립"
+                msg = (
+                    f"<b>📊 지금 시장</b>\n\n"
+                    f"{sp_str} | {nq_str}\n"
+                    f"{vix_str} | {krw_str}\n"
+                    f"{fg_str} {mood}"
+                )
+                send(chat_id, msg)
+            except Exception as e:
+                logger.error("요약 error: %s", e)
+                send(chat_id, "시황 조회 중 오류가 발생했어요.")
+
         # ── /AI ──────────────────────────────────────
         elif cmd in ["/ai", "/AI", "/나의브리핑", "/개인브리핑"]:
             import json as _json
