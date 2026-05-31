@@ -48,10 +48,18 @@ def yf_quote(symbol: str, retries: int = 3) -> dict:
 
 
 def collect_batch_yf(symbols: dict) -> dict:
-    """여러 심볼 yfinance 수집"""
+    """여러 심볼 yfinance 병렬 수집"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     result = {}
-    for name, sym in symbols.items():
-        result[name] = yf_quote(sym)
+    with ThreadPoolExecutor(max_workers=min(len(symbols), 6)) as pool:
+        futures = {pool.submit(yf_quote, sym): name for name, sym in symbols.items()}
+        for f in as_completed(futures):
+            name = futures[f]
+            try:
+                result[name] = f.result()
+            except Exception as e:
+                logger.warning("collect_batch_yf %s: %s", name, e)
+                result[name] = {}
     return result
 
 
@@ -119,7 +127,7 @@ def collect_all() -> dict:
         "fear_greed": collect_fear_greed,
     }
     results = {}
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=6) as pool:
         futures = {pool.submit(fn): key for key, fn in tasks.items()}
         for future in as_completed(futures):
             key = futures[future]

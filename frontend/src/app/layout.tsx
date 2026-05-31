@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -12,7 +12,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#00d97e",
+};
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://9haejo.vercel.app"),
   title: "구해조 | 미국 증시 AI 브리핑 - 매일 8시 텔레그램",
   description: "Claude AI가 분석한 미국 증시 브리핑을 매일 오전 8시 텔레그램으로 받아보세요. S&P500, 나스닥, 환율, 섹터별 분석을 한국어로.",
   keywords: ["미국 증시", "주식 브리핑", "텔레그램 봇", "AI 주식분석", "나스닥", "S&P500", "한국 투자자"],
@@ -41,7 +46,6 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
   manifest: "/manifest.json",
-  themeColor: "#00d97e",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
