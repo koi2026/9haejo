@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
@@ -33,29 +34,17 @@ function BriefingCard({ text, index }: { text: string; index: number }) {
   );
 }
 
-export default function BriefingsPage() {
+function BriefingsContent() {
   const [dates, setDates] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [briefings, setBriefings] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [briefingLoading, setBriefingLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  useEffect(() => {
-    fetch(`${API}/summary/history`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.dates?.length) {
-          setDates(d.dates);
-          // 자동으로 첫 번째(최신) 날짜 로드
-          loadBriefing(d.dates[0]);
-          setSelected(d.dates[0]);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const loadBriefing = async (date: string) => {
+  const loadBriefing = useCallback(async (date: string) => {
     if (briefings[date]) { setSelected(date); return; }
     setBriefingLoading(true);
     try {
@@ -68,8 +57,117 @@ export default function BriefingsPage() {
     } catch {} finally {
       setBriefingLoading(false);
     }
+  }, [briefings]);
+
+  useEffect(() => {
+    const dateParam = searchParams.get("date");
+    fetch(`${API}/summary/history`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.dates?.length) {
+          setDates(d.dates);
+          const target = dateParam && d.dates.includes(dateParam) ? dateParam : d.dates[0];
+          loadBriefing(target);
+          setSelected(target);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [searchParams]);
+
+  const selectDate = (date: string) => {
+    loadBriefing(date);
+    router.push(`/briefings?date=${date}`, { scroll: false });
   };
 
+  const copyShareLink = () => {
+    const url = `https://9haejo.vercel.app/briefings?date=${selected}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px" }}>
+      <div style={{ marginBottom: 36 }}>
+        <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>BRIEFING ARCHIVE</p>
+        <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, marginBottom: 8 }}>브리핑 아카이브</h1>
+        <p style={{ color: C.muted, fontSize: 15 }}>매일 오전 8시 발송된 AI 브리핑을 날짜별로 확인하세요</p>
+      </div>
+
+      {loading ? (
+        <div style={{ color: C.muted, textAlign: "center", padding: 60 }}>로딩 중...</div>
+      ) : dates.length === 0 ? (
+        <div style={{ color: C.muted, textAlign: "center", padding: 60 }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>📭</div>
+          <div>아직 저장된 브리핑이 없습니다.</div>
+          <div style={{ marginTop: 8, fontSize: 13 }}>매일 오전 8시 이후에 확인해주세요.</div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 24 }}>
+          {/* Date list */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 8 }}>날짜 선택</div>
+            {dates.map(date => (
+              <button key={date} onClick={() => selectDate(date)} style={{
+                padding: "10px 14px", borderRadius: 10, border: `1px solid ${selected === date ? C.green : C.border}`,
+                background: selected === date ? `${C.green}12` : C.card,
+                color: selected === date ? C.green : C.muted,
+                fontSize: 13, fontFamily: "monospace", cursor: "pointer", fontWeight: 600,
+                textAlign: "left", transition: "all 0.15s",
+              }}>
+                {date}
+                {selected === date && <span style={{ float: "right", fontSize: 10 }}>◀</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Briefing content */}
+          <div>
+            {briefingLoading ? (
+              <div style={{ display: "grid", gap: 14 }}>
+                {[0,1,2,3,4].map(i => (
+                  <div key={i} style={{ padding: 20, borderRadius: 14, background: C.card, border: `1px solid ${C.border}` }}>
+                    <div style={{ height: 10, width: "30%", borderRadius: 4, background: C.border, marginBottom: 12 }} />
+                    <div style={{ height: 8, width: "90%", borderRadius: 4, background: C.border, marginBottom: 8 }} />
+                    <div style={{ height: 8, width: "70%", borderRadius: 4, background: C.border }} />
+                  </div>
+                ))}
+              </div>
+            ) : selected && briefings[selected] ? (
+              <>
+                <div style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{selected} 브리핑</span>
+                  <button onClick={copyShareLink} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, background: copied ? `${C.green}25` : `${C.blue}15`, color: copied ? C.green : C.blue, border: `1px solid ${copied ? C.green : C.blue}30`, cursor: "pointer" }}>
+                    {copied ? "✓ 복사됨!" : "🔗 링크 복사"}
+                  </button>
+                  <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`${selected} 미국 증시 AI 브리핑 👇`)}&url=${encodeURIComponent(`https://9haejo.vercel.app/briefings?date=${selected}`)}`} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, background: "#1da1f215", color: "#1da1f2", border: "1px solid #1da1f230", textDecoration: "none" }}>
+                    X 공유
+                  </a>
+                  <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}30`, textDecoration: "none" }}>
+                    텔레그램 구독 →
+                  </a>
+                </div>
+                <div style={{ display: "grid", gap: 14 }}>
+                  {briefings[selected].map((t, i) => <BriefingCard key={i} text={t} index={i} />)}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>
+                왼쪽에서 날짜를 선택하세요
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function BriefingsPage() {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
       {/* NAV */}
@@ -90,74 +188,9 @@ export default function BriefingsPage() {
         </div>
       </nav>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px" }}>
-        <div style={{ marginBottom: 36 }}>
-          <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>BRIEFING ARCHIVE</p>
-          <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, marginBottom: 8 }}>브리핑 아카이브</h1>
-          <p style={{ color: C.muted, fontSize: 15 }}>매일 오전 8시 발송된 AI 브리핑을 날짜별로 확인하세요</p>
-        </div>
-
-        {loading ? (
-          <div style={{ color: C.muted, textAlign: "center", padding: 60 }}>로딩 중...</div>
-        ) : dates.length === 0 ? (
-          <div style={{ color: C.muted, textAlign: "center", padding: 60 }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>📭</div>
-            <div>아직 저장된 브리핑이 없습니다.</div>
-            <div style={{ marginTop: 8, fontSize: 13 }}>매일 오전 8시 이후에 확인해주세요.</div>
-          </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 24 }}>
-            {/* Date list */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 8 }}>날짜 선택</div>
-              {dates.map(date => (
-                <button key={date} onClick={() => loadBriefing(date)} style={{
-                  padding: "10px 14px", borderRadius: 10, border: `1px solid ${selected === date ? C.green : C.border}`,
-                  background: selected === date ? `${C.green}12` : C.card,
-                  color: selected === date ? C.green : C.muted,
-                  fontSize: 13, fontFamily: "monospace", cursor: "pointer", fontWeight: 600,
-                  textAlign: "left", transition: "all 0.15s",
-                }}>
-                  {date}
-                  {selected === date && <span style={{ float: "right", fontSize: 10 }}>◀</span>}
-                </button>
-              ))}
-            </div>
-
-            {/* Briefing content */}
-            <div>
-              {briefingLoading ? (
-                <div style={{ display: "grid", gap: 14 }}>
-                  {[0,1,2,3,4].map(i => (
-                    <div key={i} style={{ padding: 20, borderRadius: 14, background: C.card, border: `1px solid ${C.border}` }}>
-                      <div style={{ height: 10, width: "30%", borderRadius: 4, background: C.border, marginBottom: 12 }} />
-                      <div style={{ height: 8, width: "90%", borderRadius: 4, background: C.border, marginBottom: 8 }} />
-                      <div style={{ height: 8, width: "70%", borderRadius: 4, background: C.border }} />
-                    </div>
-                  ))}
-                </div>
-              ) : selected && briefings[selected] ? (
-                <>
-                  <div style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{selected} 브리핑</span>
-                    <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: 12, padding: "4px 12px", borderRadius: 6, background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}30`, textDecoration: "none" }}>
-                      텔레그램에서 받기 →
-                    </a>
-                  </div>
-                  <div style={{ display: "grid", gap: 14 }}>
-                    {briefings[selected].map((t, i) => <BriefingCard key={i} text={t} index={i} />)}
-                  </div>
-                </>
-              ) : (
-                <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>
-                  왼쪽에서 날짜를 선택하세요
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+      <Suspense fallback={<div style={{ color: C.muted, textAlign: "center", padding: 60 }}>로딩 중...</div>}>
+        <BriefingsContent />
+      </Suspense>
     </div>
   );
 }
