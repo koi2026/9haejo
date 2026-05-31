@@ -112,6 +112,39 @@ def run_summary_job():
 _scheduler = BackgroundScheduler(timezone=pytz.utc)
 
 
+def check_user_alarms():
+    """사용자 개인 알람 체크 (매 1분) — user_settings.alarm_time (KST HH:MM)"""
+    import datetime, pytz as _pytz
+    try:
+        from user_settings import _load_all_settings
+        from bot import send
+        from collector import yf_quote, collect_fear_greed
+        all_settings = _load_all_settings()
+        now_kst = datetime.datetime.now(_pytz.timezone("Asia/Seoul"))
+        current_time = now_kst.strftime("%H:%M")
+        for chat_id, settings in all_settings.items():
+            alarm_time = settings.get("alarm_time")
+            if alarm_time and alarm_time == current_time:
+                # 시황 요약 전송
+                try:
+                    sp = yf_quote("^GSPC")
+                    nq = yf_quote("^IXIC")
+                    fg = collect_fear_greed()
+                    sp_str = f"S&P500 {'▲' if sp.get('change_pct',0)>=0 else '▼'}{abs(sp.get('change_pct',0)):.2f}%" if sp else ""
+                    nq_str = f"NASDAQ {'▲' if nq.get('change_pct',0)>=0 else '▼'}{abs(nq.get('change_pct',0)):.2f}%" if nq else ""
+                    fg_str = f"F&G {fg.get('score','?')}" if fg else ""
+                    msg = (
+                        f"<b>🔔 {alarm_time} KST 시황 알람</b>\n\n"
+                        f"{sp_str} | {nq_str}\n{fg_str}"
+                    )
+                    send(chat_id, msg)
+                    logger.info("User alarm sent to %s at %s", chat_id, current_time)
+                except Exception as e:
+                    logger.error("User alarm send error for %s: %s", chat_id, e)
+    except Exception as e:
+        logger.error("check_user_alarms error: %s", e)
+
+
 def register_bot_commands():
     """Telegram setMyCommands -- 봇 커맨드 자동완성 등록"""
     import httpx as _httpx
@@ -201,8 +234,15 @@ def startup_scheduler():
         id="price_alerts",
         replace_existing=True,
     )
+    # 사용자 알람 체크: 매 1분
+    _scheduler.add_job(
+        check_user_alarms,
+        IntervalTrigger(minutes=1),
+        id="user_alarms",
+        replace_existing=True,
+    )
     _scheduler.start()
-    logger.info("Scheduler started: daily_briefing + price_alerts every 5min")
+    logger.info("Scheduler started: daily_briefing + price_alerts + user_alarms")
 
 
 @app.on_event("shutdown")

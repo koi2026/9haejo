@@ -14,6 +14,7 @@ DEFAULTS = {
     "timezone": "Asia/Seoul",
     "extra_alerts": [],  # 추가 알림 시간 ["14:00", "23:00"]
     "watchlist_briefing": True,  # 브리핑 시 watchlist 포함
+    "alarm_time": None,  # 개인 시황 알람 시각 (KST HH:MM)
 }
 
 
@@ -36,11 +37,14 @@ def get_settings(chat_id: str) -> dict:
 
 
 def update_setting(chat_id: str, key: str, value) -> bool:
-    if key not in DEFAULTS:
-        return False
     data = _load()
     user = data.get(chat_id, {})
     user[key] = value
     data[chat_id] = user
     _save(data)
     return True
+
+
+def _load_all_settings() -> dict:
+    """모든 사용자 설정 반환 (알람 체크용)"""
+    return _load()
