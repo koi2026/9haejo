@@ -1111,6 +1111,17 @@ def handle_update(update: dict):
             lines.append("\n<i>FOMC=금리결정 CPI=인플레 NFP=고용 PCE=물가 GDP=성장</i>")
             send(chat_id, "\n".join(lines))
 
+        # ── /IPO ─────────────────────────────────────────
+        elif cmd in ["/ipo", "/IPO", "/상장"]:
+            send(chat_id, "📋 IPO 종목 조회 중...")
+            try:
+                from stock_analyzer import get_ipo_calendar
+                result = get_ipo_calendar()
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("IPO error: %s", e)
+                send(chat_id, "IPO 정보 조회 중 오류가 발생했습니다.")
+
         # ── /상승 /하락 ──────────────────────────────────
         elif cmd in ["/상승", "/gainers", "/하락", "/losers"]:
             is_up = cmd in ["/상승", "/gainers"]
