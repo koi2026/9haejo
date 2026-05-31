@@ -33,7 +33,19 @@ SECTOR_MAP = {
 }
 
 
+def _strip_html_tags(text: str) -> str:
+    """HTML 태그를 제거해 plain text로 변환 (폴백용)"""
+    import re
+    # 허용되지 않는 태그를 제거하고 entities 디코딩
+    text = re.sub(r"<[^>]+>", "", text)
+    text = text.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+    return text
+
+
 def send(chat_id: str, text: str, reply_markup: dict | None = None):
+    # 텍스트 길이 제한 (Telegram 최대 4096자)
+    if len(text) > 4096:
+        text = text[:4090] + "\n..."
     try:
         payload = {
             "chat_id": chat_id,
@@ -44,7 +56,27 @@ def send(chat_id: str, text: str, reply_markup: dict | None = None):
         if reply_markup:
             payload["reply_markup"] = reply_markup
         r = httpx.post(f"{BASE_URL}/sendMessage", json=payload, timeout=15)
-        logger.info("send -> %s: %s", chat_id, r.status_code)
+        if r.status_code == 400:
+            # HTML 파싱 오류 가능성 — plain text로 재시도
+            data = r.json()
+            if "parse" in data.get("description", "").lower() or "html" in data.get("description", "").lower():
+                logger.warning("HTML parse error, retrying as plain text: %s", data.get("description"))
+                plain_text = _strip_html_tags(text)
+                if len(plain_text) > 4096:
+                    plain_text = plain_text[:4090] + "\n..."
+                payload2 = {
+                    "chat_id": chat_id,
+                    "text": plain_text,
+                    "disable_web_page_preview": True,
+                }
+                if reply_markup:
+                    payload2["reply_markup"] = reply_markup
+                r2 = httpx.post(f"{BASE_URL}/sendMessage", json=payload2, timeout=15)
+                logger.info("plain text fallback -> %s: %s", chat_id, r2.status_code)
+            else:
+                logger.error("send 400: %s — text[:80]: %r", data.get("description"), text[:80])
+        else:
+            logger.info("send -> %s: %s", chat_id, r.status_code)
     except Exception as e:
         logger.error("send error: %s", e)
 
