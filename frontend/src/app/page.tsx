@@ -739,15 +739,21 @@ export default function Home() {
 
       {/* SCROLLING TICKER BAR */}
       {marketData && (() => {
+        const fxFormat = (name: string, price: number) => {
+          if (name.includes("KRW")) return "₩" + Math.round(price).toLocaleString("ko-KR");
+          if (name.includes("JPY")) return "¥" + price.toFixed(2);
+          return price.toFixed(4);
+        };
         const tickerItems = [
-          ...Object.entries(marketData.indices).map(([n, d]) => ({ label: n, price: d.price.toLocaleString(), pct: d.change_pct })),
-          ...Object.entries(marketData.fx).slice(0, 3).map(([n, d]) => ({ label: n, price: n.includes("KRW") ? Math.round(d.price).toLocaleString() + "w" : d.price.toFixed(2), pct: d.change_pct })),
-          { label: "F&G", price: String(marketData.fear_greed.score), pct: null },
+          ...Object.entries(marketData.indices).map(([n, d]) => ({ label: n, price: d.price.toLocaleString(undefined, { maximumFractionDigits: 0 }), pct: d.change_pct })),
+          ...Object.entries(marketData.fx).map(([n, d]) => ({ label: n, price: fxFormat(n, d.price), pct: d.change_pct })),
+          ...(marketData.big_stocks ? Object.entries(marketData.big_stocks).slice(0, 6).map(([n, d]) => ({ label: n, price: "$" + (d.price as number).toFixed(2), pct: d.change_pct })) : []),
+          { label: "F&G", price: String(marketData.fear_greed.score) + "pt", pct: null },
         ];
         const items = [...tickerItems, ...tickerItems];
         return (
           <div style={{ background: "#050510", borderBottom: "1px solid #111128", overflow: "hidden", height: 34, display: "flex", alignItems: "center" }}>
-            <div style={{ display: "flex", animation: "marquee 40s linear infinite", whiteSpace: "nowrap" }}>
+            <div style={{ display: "flex", animation: "marquee 60s linear infinite", whiteSpace: "nowrap" }}>
               {items.map((item, i) => {
                 const up = item.pct === null ? null : item.pct >= 0;
                 const col = item.pct === null ? "#6b6b80" : up ? "#00d97e" : "#ff4466";
