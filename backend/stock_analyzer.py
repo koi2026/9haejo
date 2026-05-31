@@ -267,29 +267,41 @@ def compare_stocks(query: str) -> str:
     n1 = ov1.get("name") or t1
     n2 = ov2.get("name") or t2
 
-    prompt = f"""Compare two stocks for Korean retail investors. Write in Korean, concise, use emojis.
-MAX 350 characters.
+    # 데이터 테이블 먼저 구성 (AI 전에 즉시 표시)
+    def pos_52w(price, high, low):
+        try:
+            h, l = float(high), float(low)
+            pct = (price - l) / (h - l) * 100
+            return f"{pct:.0f}% (52주 범위)"
+        except Exception:
+            return "N/A"
 
-Stock A: {n1} ({t1})
-  Price: ${q1['price']:.2f} | Change: {pct_bar(q1['change_pct'])}
-  52W High: ${ov1.get('52w_high','N/A')} | Low: ${ov1.get('52w_low','N/A')}
-  PER: {ov1.get('pe_ratio','N/A')} | Market Cap: {fmt_market_cap(ov1.get('market_cap'))}
-  Sector: {ov1.get('sector','N/A')}
+    table = (
+        f"<b>⚖️ {t1} vs {t2} 비교</b>\n\n"
+        f"<code>"
+        f"{'항목':<8} {t1:<10} {t2:<10}\n"
+        f"{'현재가':<8} ${q1['price']:>8.2f} ${q2['price']:>8.2f}\n"
+        f"{'등락률':<8} {pct_bar(q1['change_pct']):>10} {pct_bar(q2['change_pct']):>10}\n"
+        f"{'PER':<8} {str(ov1.get('pe_ratio','N/A')):>10} {str(ov2.get('pe_ratio','N/A')):>10}\n"
+        f"{'52주위치':<8} {pos_52w(q1['price'],ov1.get('52w_high',0),ov1.get('52w_low',0)):>10} {pos_52w(q2['price'],ov2.get('52w_high',0),ov2.get('52w_low',0)):>10}\n"
+        f"</code>"
+    )
 
-Stock B: {n2} ({t2})
-  Price: ${q2['price']:.2f} | Change: {pct_bar(q2['change_pct'])}
-  52W High: ${ov2.get('52w_high','N/A')} | Low: ${ov2.get('52w_low','N/A')}
-  PER: {ov2.get('pe_ratio','N/A')} | Market Cap: {fmt_market_cap(ov2.get('market_cap'))}
-  Sector: {ov2.get('sector','N/A')}
+    prompt = f"""You are comparing {t1} ({n1}) vs {t2} ({n2}) for Korean retail investors.
+Write ONLY the AI analysis part in Korean. No data table (already shown). MAX 280 chars.
+
+Data:
+{t1}: ${q1['price']:.2f} {pct_bar(q1['change_pct'])} PER={ov1.get('pe_ratio','N/A')} mktcap={fmt_market_cap(ov1.get('market_cap'))}
+{t2}: ${q2['price']:.2f} {pct_bar(q2['change_pct'])} PER={ov2.get('pe_ratio','N/A')} mktcap={fmt_market_cap(ov2.get('market_cap'))}
 
 Format:
-[title line with both ticker names]
-[today's performance comparison]
-[valuation comparison: PER, 52W position]
-[one clear winner statement with reasoning]
-[risk disclaimer]"""
+[단기 퍼포먼스 비교 한줄]
+[밸류에이션 관점 비교 한줄]
+[결론: 🏆 {t1} 우위 or 🏆 {t2} 우위 + 이유]
+*투자 참고용*"""
 
-    return claude_call("claude-haiku-4-5", prompt, max_tokens=600)
+    ai_text = claude_call("claude-haiku-4-5", prompt, max_tokens=400)
+    return table + "\n\n" + ai_text
 
 
 def summarize_news(ticker: str = "") -> str:
