@@ -250,12 +250,32 @@ def handle_update(update: dict):
             is_new = subscribe(chat_id)
             if is_new:
                 send(chat_id, (
-                    "✅ <b>구독 완료!</b>\n\n"
-                    "매일 오전 8시에 미국 증시 AI 브리핑을 보내드립니다.\n"
-                    "/구독취소 로 언제든지 해제할 수 있어요."
+                    "🎉 <b>구독 완료!</b>\n\n"
+                    "매일 오전 8시, 월가 AI 브리핑을 받으실 준비가 됐습니다!\n\n"
+                    "📋 지금 바로 가장 최근 브리핑을 보내드릴게요..."
                 ))
+                # 최신 브리핑 1페이지 즉시 발송
+                try:
+                    from briefing_history import get_latest_briefing
+                    cached_date, cached_tweets = get_latest_briefing()
+                    if cached_tweets:
+                        preview = cached_tweets[0]
+                        send(chat_id, f"<b>📊 최근 브리핑 ({cached_date}) 미리보기</b>\n\n{preview}")
+                        share_markup = {
+                            "inline_keyboard": [[
+                                {"text": "📈 전체 브리핑 보기", "callback_data": "/브리핑"},
+                                {"text": "📋 관심종목 추가", "callback_data": "/watchlist"},
+                            ], [
+                                {"text": "🔗 친구에게 공유", "url": "https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app"},
+                            ]]
+                        }
+                        send(chat_id, "관심종목과 가격 알림도 설정해 보세요!", reply_markup=share_markup)
+                    else:
+                        send(chat_id, "/구독취소 로 언제든지 해제할 수 있어요.")
+                except Exception:
+                    send(chat_id, "/구독취소 로 언제든지 해제할 수 있어요.")
             else:
-                send(chat_id, "이미 구독 중입니다! 매일 8시에 브리핑을 보내드리고 있어요.")
+                send(chat_id, "이미 구독 중이에요! 매일 8시에 브리핑을 보내드리고 있어요. 🎯")
 
         # ── /구독취소 ─────────────────────────────────
         elif cmd in ["/구독취소", "/unsubscribe"]:
@@ -491,13 +511,9 @@ def handle_update(update: dict):
                 # AI 환율 전망
                 krw = fx_data.get("USD/KRW", {}).get("price", "N/A")
                 krw_pct = fx_data.get("USD/KRW", {}).get("change_pct", 0)
-                client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-                msg = client.messages.create(
-                    model="claude-haiku-4-5",
-                    max_tokens=300,
-                    messages=[{"role": "user", "content": f"USD/KRW is {krw} ({krw_pct:+.2f}%). Write a 2-3 sentence Korean-language FX impact analysis for Korean stock investors. Focus on KOSPI impact, import/export companies. Use emojis. MAX 200 chars."}],
-                )
-                send(chat_id, msg.content[0].text)
+                from stock_analyzer import claude_call
+                ai = claude_call("claude-haiku-4-5", f"USD/KRW is {krw} ({krw_pct:+.2f}%). Write a 2-3 sentence Korean-language FX impact analysis for Korean stock investors. Focus on KOSPI impact, import/export companies. Use emojis. MAX 200 chars.", max_tokens=300)
+                send(chat_id, ai)
             except Exception as e:
                 logger.error("fx error: %s", e)
                 send(chat_id, "환율 조회 중 오류가 발생했어요.")
