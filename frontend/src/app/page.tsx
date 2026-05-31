@@ -358,6 +358,39 @@ function EconomicCalendar() {
 
 const POPULAR_TICKERS = ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN", "META", "GOOGL", "AVGO", "BTC-USD", "ETH-USD"];
 
+const AUTOCOMPLETE_LIST: { ticker: string; name: string; sector: string }[] = [
+  { ticker: "NVDA", name: "NVIDIA", sector: "반도체" },
+  { ticker: "TSLA", name: "Tesla", sector: "전기차" },
+  { ticker: "AAPL", name: "Apple", sector: "기술" },
+  { ticker: "MSFT", name: "Microsoft", sector: "기술" },
+  { ticker: "AMZN", name: "Amazon", sector: "이커머스" },
+  { ticker: "META", name: "Meta Platforms", sector: "소셜미디어" },
+  { ticker: "GOOGL", name: "Alphabet", sector: "기술" },
+  { ticker: "AVGO", name: "Broadcom", sector: "반도체" },
+  { ticker: "AMD", name: "AMD", sector: "반도체" },
+  { ticker: "INTC", name: "Intel", sector: "반도체" },
+  { ticker: "QCOM", name: "Qualcomm", sector: "반도체" },
+  { ticker: "PLTR", name: "Palantir", sector: "AI" },
+  { ticker: "CRM", name: "Salesforce", sector: "SaaS" },
+  { ticker: "ORCL", name: "Oracle", sector: "기술" },
+  { ticker: "NFLX", name: "Netflix", sector: "스트리밍" },
+  { ticker: "COIN", name: "Coinbase", sector: "크립토" },
+  { ticker: "MSTR", name: "MicroStrategy", sector: "크립토" },
+  { ticker: "JPM", name: "JPMorgan Chase", sector: "금융" },
+  { ticker: "GS", name: "Goldman Sachs", sector: "금융" },
+  { ticker: "BAC", name: "Bank of America", sector: "금융" },
+  { ticker: "XOM", name: "ExxonMobil", sector: "에너지" },
+  { ticker: "LLY", name: "Eli Lilly", sector: "바이오" },
+  { ticker: "UNH", name: "UnitedHealth", sector: "헬스케어" },
+  { ticker: "V", name: "Visa", sector: "금융" },
+  { ticker: "MA", name: "Mastercard", sector: "금융" },
+  { ticker: "SPY", name: "S&P500 ETF", sector: "ETF" },
+  { ticker: "QQQ", name: "NASDAQ ETF", sector: "ETF" },
+  { ticker: "SOXX", name: "반도체 ETF", sector: "ETF" },
+  { ticker: "BTC-USD", name: "Bitcoin", sector: "크립토" },
+  { ticker: "ETH-USD", name: "Ethereum", sector: "크립토" },
+];
+
 function Week52Bar({ position }: { position: number | null }) {
   if (position === null) return null;
   const pct = Math.max(0, Math.min(100, position));
@@ -379,6 +412,7 @@ function Week52Bar({ position }: { position: number | null }) {
 
 function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
   const [query, setQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [result, setResult] = useState<{
     ticker: string; price: number; change_pct: number; change: number; volume: number;
     name?: string; sector?: string; pe_ratio?: number | null; market_cap?: number | null;
@@ -386,6 +420,13 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const suggestions = query.length >= 1
+    ? AUTOCOMPLETE_LIST.filter(s =>
+        s.ticker.startsWith(query.toUpperCase()) ||
+        s.name.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 6)
+    : [];
 
   const search = async (ticker: string) => {
     if (!ticker.trim()) return;
@@ -415,16 +456,49 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
         <p style={{ color: C.muted, textAlign: "center", marginBottom: 28, fontSize: 14 }}>티커를 입력하면 실시간 가격을 조회합니다</p>
 
         {/* Search bar */}
-        <form onSubmit={(e) => { e.preventDefault(); search(query); }} style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value.toUpperCase())}
-            placeholder="NVDA, TSLA, AAPL..."
-            style={{
-              flex: 1, padding: "14px 18px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`,
-              color: C.text, fontSize: 16, fontFamily: "monospace", fontWeight: 700, outline: "none",
-            }}
-          />
+        <form onSubmit={(e) => { e.preventDefault(); setShowSuggestions(false); search(query); }} style={{ display: "flex", gap: 8, marginBottom: 16, position: "relative" }}>
+          <div style={{ flex: 1, position: "relative" }}>
+            <input
+              value={query}
+              onChange={e => { setQuery(e.target.value.toUpperCase()); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="NVDA, TSLA, AAPL..."
+              autoComplete="off"
+              style={{
+                width: "100%", padding: "14px 18px", borderRadius: 12, background: C.card, border: `1px solid ${showSuggestions && suggestions.length > 0 ? C.blue : C.border}`,
+                color: C.text, fontSize: 16, fontFamily: "monospace", fontWeight: 700, outline: "none", boxSizing: "border-box",
+              }}
+            />
+            {/* Autocomplete dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{
+                position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
+                background: C.card, border: `1px solid ${C.border}`, borderRadius: 12,
+                marginTop: 4, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+              }}>
+                {suggestions.map(s => (
+                  <button key={s.ticker} type="button"
+                    onMouseDown={() => { setQuery(s.ticker); setShowSuggestions(false); search(s.ticker); }}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      width: "100%", padding: "10px 16px", background: "transparent",
+                      border: "none", borderBottom: `1px solid ${C.border}`,
+                      cursor: "pointer", textAlign: "left",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = `${C.blue}10`)}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <div>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>{s.ticker}</span>
+                      <span style={{ fontSize: 12, color: C.muted, marginLeft: 10 }}>{s.name}</span>
+                    </div>
+                    <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: `${C.blue}18`, color: C.blue }}>{s.sector}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button type="submit" disabled={loading} style={{
             padding: "14px 24px", borderRadius: 12, background: C.grad, color: "#07070f",
             fontWeight: 800, fontSize: 14, border: "none", cursor: loading ? "wait" : "pointer",
