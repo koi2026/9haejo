@@ -1067,3 +1067,71 @@ Data: {', '.join(f"{s} RSI{top_data[s]['rsi']} vol{top_data[s]['vol_ratio']}x" f
     result = "\n".join(lines) + "\n\n" + ai + "\n\n<i>*스크리너는 참고용. 손절선 설정 필수*</i>"
     quote_cache.set(cache_key, result)
     return result
+
+
+# ── 개인화 AI 종합보고서 ─────────────────────────────────────────
+def personalized_ai_report(chat_id: str, watchlist: list) -> str:
+    """사용자 watchlist 기반 개인화 AI 브리핑"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import datetime
+
+    # 시장 현황 + watchlist 데이터 병렬 수집
+    market_tickers = ["^GSPC", "^IXIC", "^VIX"]
+    all_tickers = market_tickers + [t for t in watchlist[:6] if t not in market_tickers]
+
+    quotes = {}
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {pool.submit(fetch_quote, t): t for t in watchlist[:6]}
+        mfutures = {pool.submit(fetch_quote, t): t for t in ["SPY", "QQQ", "VIX"]}
+        for f in as_completed({**futures, **mfutures}):
+            t = futures.get(f) or mfutures.get(f)
+            try:
+                q = f.result()
+                if q:
+                    quotes[t] = q
+            except Exception:
+                pass
+
+    today = datetime.date.today().strftime("%m/%d")
+    wl_lines = []
+    for t in watchlist[:6]:
+        q = quotes.get(t)
+        if q:
+            sign = "+" if q["change_pct"] >= 0 else ""
+            wl_lines.append(f"{t}: ${q['price']:.2f} ({sign}{q['change_pct']:.2f}%)")
+
+    spy = quotes.get("SPY", {})
+    qqq = quotes.get("QQQ", {})
+    market_ctx = (
+        f"SPY: {'+' if spy.get('change_pct',0)>=0 else ''}{spy.get('change_pct',0):.2f}%, "
+        f"QQQ: {'+' if qqq.get('change_pct',0)>=0 else ''}{qqq.get('change_pct',0):.2f}%"
+        if spy else "시장 데이터 로딩 중"
+    )
+
+    if not wl_lines:
+        wl_section = "(관심종목 없음 - /watchlist add NVDA 로 추가)"
+    else:
+        wl_section = "\n".join(wl_lines)
+
+    prompt = f"""You are a personal AI investment advisor for a Korean retail investor. Today is {today}.
+Write a personalized daily briefing in Korean. Max 600 chars total.
+
+Structure:
+1. 시장 한줄: [one-line market summary with numbers]
+2. 내 포트폴리오: [analyze each watchlist stock with specific signal 🟢/🟡/🔴]
+3. 오늘의 액션: [1 specific actionable recommendation]
+4. 리스크: [1 key risk to watch]
+
+Market: {market_ctx}
+My watchlist:
+{wl_section}
+
+Be specific with prices and %. Korean only."""
+
+    header = (
+        f"<b>🤖 나만의 AI 브리핑</b> ({today})\n\n"
+        f"<b>내 관심종목</b>:\n"
+        f"<code>{wl_section if wl_lines else '없음'}</code>\n\n"
+    )
+    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=700)
+    return header + ai + "\n\n<i>*개인화 분석 | 투자 결정은 본인 책임*</i>"
