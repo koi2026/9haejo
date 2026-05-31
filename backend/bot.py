@@ -727,6 +727,46 @@ def handle_update(update: dict):
                 logger.error("momentum error: %s", e)
                 send(chat_id, "모멘텀 스캔 중 오류가 발생했어요.")
 
+        # ── /알람 예약 ───────────────────────────────
+        elif cmd in ["/알람", "/alarm", "/예약"]:
+            parts = text.split()
+            from user_settings import get_settings, update_setting
+            if len(parts) >= 2:
+                time_str = parts[1].strip()
+                # 취소 처리
+                if time_str in ["취소", "cancel", "off"]:
+                    update_setting(chat_id, "alarm_time", None)
+                    send(chat_id, "✅ 알람이 취소되었습니다.")
+                else:
+                    # HH:MM 형식 검증
+                    import re
+                    if re.match(r'^\d{1,2}:\d{2}$', time_str):
+                        h, m = map(int, time_str.split(':'))
+                        if 0 <= h <= 23 and 0 <= m <= 59:
+                            alarm_kst = f"{h:02d}:{m:02d}"
+                            update_setting(chat_id, "alarm_time", alarm_kst)
+                            send(chat_id, (
+                                f"🔔 <b>알람 예약 완료!</b>\n\n"
+                                f"매일 <b>KST {alarm_kst}</b>에 시황 요약을 전송합니다.\n"
+                                f"취소: /알람 취소"
+                            ))
+                        else:
+                            send(chat_id, "올바른 시각을 입력해주세요 (예: /알람 09:00)")
+                    else:
+                        send(chat_id, "형식: /알람 09:00  (취소: /알람 취소)")
+            else:
+                settings = get_settings(chat_id)
+                alarm = settings.get("alarm_time")
+                if alarm:
+                    send(chat_id, f"🔔 현재 알람: <b>KST {alarm}</b>\n취소: /알람 취소")
+                else:
+                    send(chat_id, (
+                        "🔔 <b>시황 알람 예약</b>\n\n"
+                        "/알람 09:00 — 매일 오전 9시 시황 자동 전송\n"
+                        "/알람 취소 — 알람 해제\n\n"
+                        "원하는 시각을 KST 기준으로 입력하세요."
+                    ))
+
         # ── /금리 ────────────────────────────────────
         elif cmd in ["/금리", "/rate", "/rates", "/국채"]:
             send(chat_id, "📈 미국 국채금리 분석 중...")

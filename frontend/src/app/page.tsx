@@ -387,7 +387,7 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
   const up = result ? result.change_pct >= 0 : null;
 
   return (
-    <section style={{ padding: "60px 24px", background: C.bg }}>
+    <section id="lookup" style={{ padding: "60px 24px", background: C.bg }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <p style={{ fontSize: 11, color: C.blue, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8, textAlign: "center" }}>STOCK LOOKUP</p>
         <h2 style={{ fontSize: 28, fontWeight: 900, textAlign: "center", marginBottom: 8, color: C.text }}>종목 실시간 시세</h2>
@@ -710,7 +710,7 @@ export default function Home() {
 
       {/* LIVE MARKET WIDGET */}
       {marketData && (
-        <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "40px 24px" }}>
+        <section id="market" style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "40px 24px" }}>
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.green, display: "inline-block", animation: "pulse 2s infinite" }} />
@@ -792,7 +792,7 @@ export default function Home() {
       )}
 
       {/* TODAY'S BRIEFING */}
-      <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
+      <section id="briefing" style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ marginBottom: 32 }}>
             <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>TODAY'S BRIEFING</p>
@@ -902,7 +902,7 @@ export default function Home() {
 
       {/* NEWS SECTION */}
       {news.length > 0 && (
-        <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
+        <section id="news" style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
             <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>WALL STREET NEWS</p>
             <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, color: C.text }}>오늘의 월가 뉴스</h2>
@@ -1154,6 +1154,26 @@ export default function Home() {
         </div>
       </footer>
 
+      {/* 모바일 하단 탭바 */}
+      {isMobile && (
+        <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200, background: "rgba(7,7,15,0.96)", backdropFilter: "blur(16px)", borderTop: `1px solid ${C.border}`, padding: "8px 0 12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
+            {[
+              { icon: "📊", label: "시황", href: "#market" },
+              { icon: "📰", label: "뉴스", href: "#news" },
+              { icon: "📋", label: "브리핑", href: "#briefing" },
+              { icon: "🔍", label: "종목", href: "#lookup" },
+              { icon: "✅", label: "구독", href: "#subscribe" },
+            ].map(tab => (
+              <a key={tab.label} href={tab.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, textDecoration: "none", flex: 1, padding: "4px 0" }}>
+                <span style={{ fontSize: 20 }}>{tab.icon}</span>
+                <span style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{tab.label}</span>
+              </a>
+            ))}
+          </div>
+        </nav>
+      )}
+
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 6px #00d97e} 50%{opacity:.4;box-shadow:none} }
         @keyframes marquee { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
@@ -1161,6 +1181,7 @@ export default function Home() {
         .light-mode { filter: invert(1) hue-rotate(180deg); }
         .light-mode img, .light-mode video, .light-mode svg { filter: invert(1) hue-rotate(180deg); }
         .ticker-item:hover { background: rgba(255,255,255,0.05) !important; }
+        @media (max-width: 768px) { body { padding-bottom: 68px; } }
       `}</style>
     </div>
   );
