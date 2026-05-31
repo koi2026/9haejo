@@ -73,6 +73,9 @@ MAIN_MENU = {
     ], [
         {"text": "📅 경제지표 캘린더", "callback_data": "/캘린더"},
         {"text": "⚖️ 종목비교", "callback_data": "__help_stock"},
+    ], [
+        {"text": "🏭 섹터 ETF 분석", "callback_data": "/섹터"},
+        {"text": "📊 52주 고저가", "callback_data": "/52주"},
     ]]
 }
 
@@ -629,6 +632,28 @@ def handle_update(update: dict):
                 except Exception as e:
                     logger.error("news error: %s", e)
                     send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
+
+        # ── /52주 ────────────────────────────────────
+        elif cmd in ["/52주", "/52week", "/고저가"]:
+            send(chat_id, "📊 52주 신고가/신저가 종목 스캔 중...")
+            try:
+                from stock_analyzer import scan_52week
+                result = scan_52week()
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("52week error: %s", e)
+                send(chat_id, "52주 스캔 중 오류가 발생했어요.")
+
+        # ── /섹터 ────────────────────────────────────
+        elif cmd in ["/섹터", "/sector", "/sectors"]:
+            send(chat_id, "📊 섹터 ETF 분석 중... (약 10초)")
+            try:
+                from stock_analyzer import analyze_sectors
+                result = analyze_sectors()
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("sector error: %s", e)
+                send(chat_id, "섹터 분석 중 오류가 발생했어요.")
 
         # ── /내통계 ──────────────────────────────────
         elif cmd in ["/내통계", "/stats", "/mystats"]:
