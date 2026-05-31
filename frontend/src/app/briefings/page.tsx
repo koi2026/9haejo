@@ -105,22 +105,52 @@ function BriefingsContent() {
           <div style={{ marginTop: 8, fontSize: 13 }}>매일 오전 8시 이후에 확인해주세요.</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 24 }}>
-          {/* Date list */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 8 }}>날짜 선택</div>
-            {dates.map(date => (
+        <>
+          {/* Quick-access pill tabs for recent 7 days */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 28 }}>
+            {dates.slice(0, 7).map((date, i) => {
+              const isActive = selected === date;
+              const label = i === 0 ? "최신" : date.slice(5);
+              return (
+                <button key={date} onClick={() => selectDate(date)} style={{
+                  padding: "8px 16px", borderRadius: 20,
+                  border: `1px solid ${isActive ? C.green : C.border}`,
+                  background: isActive ? `${C.green}18` : C.card,
+                  color: isActive ? C.green : C.muted,
+                  fontSize: 13, fontFamily: "monospace", fontWeight: 700,
+                  cursor: "pointer", transition: "all 0.15s",
+                }}>
+                  {i === 0 && <span style={{ marginRight: 4 }}>★</span>}
+                  {label}
+                </button>
+              );
+            })}
+            {dates.length > 7 && (
+              <span style={{ fontSize: 12, color: C.muted, padding: "8px 4px", alignSelf: "center" }}>
+                + {dates.length - 7}개 더
+              </span>
+            )}
+          </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 24 }}>
+          {/* Date list - full archive */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 8 }}>전체 아카이브</div>
+            <div style={{ maxHeight: 520, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, paddingRight: 4 }}>
+            {dates.map((date, i) => (
               <button key={date} onClick={() => selectDate(date)} style={{
-                padding: "10px 14px", borderRadius: 10, border: `1px solid ${selected === date ? C.green : C.border}`,
-                background: selected === date ? `${C.green}12` : C.card,
+                padding: "9px 12px", borderRadius: 10, border: `1px solid ${selected === date ? C.green : C.border}`,
+                background: selected === date ? `${C.green}12` : "transparent",
                 color: selected === date ? C.green : C.muted,
-                fontSize: 13, fontFamily: "monospace", cursor: "pointer", fontWeight: 600,
-                textAlign: "left", transition: "all 0.15s",
+                fontSize: 12, fontFamily: "monospace", cursor: "pointer", fontWeight: 600,
+                textAlign: "left", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "space-between",
               }}>
-                {date}
-                {selected === date && <span style={{ float: "right", fontSize: 10 }}>◀</span>}
+                <span>{date}</span>
+                {i === 0 && <span style={{ fontSize: 9, background: `${C.green}25`, color: C.green, padding: "1px 5px", borderRadius: 3 }}>NEW</span>}
+                {selected === date && i !== 0 && <span style={{ fontSize: 9 }}>◀</span>}
               </button>
             ))}
+            </div>
           </div>
 
           {/* Briefing content */}
@@ -162,6 +192,7 @@ function BriefingsContent() {
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   );
