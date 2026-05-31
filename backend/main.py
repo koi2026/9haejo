@@ -152,31 +152,42 @@ def register_bot_commands():
     if not token:
         return
     commands = [
+        # 기본
         {"command": "start", "description": "시작 및 안내"},
         {"command": "help", "description": "전체 커맨드 목록"},
-        {"command": "브리핑", "description": "즉시 AI 브리핑 (30초)"},
+        {"command": "요약", "description": "지금 시장 한줄 요약 (즉시)"},
+        # 시황/분석
+        {"command": "브리핑", "description": "AI 종합 브리핑 (30초)"},
         {"command": "시황", "description": "미국+한국 시장 현황"},
-        {"command": "뉴스", "description": "오늘의 월가 뉴스 요약"},
-        {"command": "환율", "description": "주요 환율 및 AI 전망"},
+        {"command": "뉴스", "description": "월가 뉴스 AI 분석"},
+        {"command": "환율", "description": "주요 환율 + AI 전망"},
+        {"command": "매크로", "description": "금리/DXY/오일/VIX 매크로"},
+        # 스크리너
+        {"command": "섹터", "description": "SPDR 섹터 ETF 성적표 + AI"},
+        {"command": "ETF", "description": "QQQ/SPY/ARKK 등 ETF 분석"},
+        {"command": "모멘텀", "description": "RSI/MA 기반 모멘텀 종목 스캔"},
+        {"command": "배당", "description": "고배당 TOP10 + AI 분석"},
+        {"command": "52주", "description": "52주 신고가/신저가 근접 종목"},
+        {"command": "금리", "description": "미국 국채금리 + 수익률 곡선"},
+        {"command": "원자재", "description": "금/오일/구리/천연가스 현황"},
+        # 종목 도구
         {"command": "상승", "description": "오늘 빅테크 상위 종목"},
         {"command": "하락", "description": "오늘 빅테크 하위 종목"},
-        {"command": "watchlist", "description": "관심종목 현황"},
-        {"command": "포트폴리오", "description": "관심종목 AI 진단"},
-        {"command": "알림", "description": "가격 알림 관리"},
-        {"command": "설정", "description": "개인 설정"},
+        {"command": "비교", "description": "두 종목 비교 (예: /비교 NVDA TSLA)"},
+        {"command": "종목전망", "description": "종목 AI 전망 (예: /종목전망 NVDA)"},
+        {"command": "차트", "description": "30일 스파크라인 (예: /차트 NVDA)"},
+        # 내 계정
+        {"command": "ai", "description": "나만의 AI 브리핑 (watchlist 기반)"},
+        {"command": "포트폴리오", "description": "관심종목 AI 진단 + 성과 막대"},
+        {"command": "watchlist", "description": "관심종목 관리"},
+        {"command": "알림", "description": "가격 알림 설정/삭제"},
+        {"command": "알람", "description": "매일 원하는 시각 시황 자동 전송"},
         {"command": "구독", "description": "매일 8시 브리핑 구독"},
         {"command": "구독취소", "description": "구독 해제"},
-        {"command": "지난브리핑", "description": "어제 브리핑 다시보기"},
-        {"command": "매크로", "description": "금리/DXY/오일/VIX 매크로 시황"},
-        {"command": "종목전망", "description": "종목 주간 전망 AI 분석 (예: /종목전망 NVDA)"},
-        {"command": "랭킹", "description": "암호화폐/빅테크/코스피 시세 랭킹"},
-        {"command": "내통계", "description": "내 구독/관심종목/알림 현황 통계"},
-        {"command": "한줄", "description": "오늘 시장 한 줄 요약 (공유용)"},
-        {"command": "주간", "description": "이번 주 지수 성적표"},
-        {"command": "차트", "description": "종목 30일 스파크라인 차트 (예: /차트 NVDA)"},
-        {"command": "캘린더", "description": "FOMC/CPI/NFP 주요 경제지표 일정"},
-        {"command": "비교", "description": "두 종목 AI 비교 (예: /비교 NVDA TSLA)"},
-        {"command": "실적", "description": "Q2 어닝 시즌 주요 종목 발표 일정"},
+        {"command": "내통계", "description": "내 구독/알림/관심종목 통계"},
+        # 정보
+        {"command": "캘린더", "description": "FOMC/CPI/NFP 경제지표 일정"},
+        {"command": "실적", "description": "Q2 어닝 시즌 주요 일정"},
     ]
     try:
         r = _httpx.post(

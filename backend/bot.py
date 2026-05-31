@@ -130,28 +130,29 @@ HELP_MENU = {
 HELP_TEXTS = {
     "__help_briefing": (
         "📈 <b>브리핑 & 시황</b>\n\n"
-        "/브리핑 — AI 브리핑 즉시 받기 (30초)\n"
+        "/요약 — 지금 시황 즉시 한줄 (1초)\n"
+        "/브리핑 — AI 종합 브리핑 (30초)\n"
         "/시황 — 지수+환율+섹터 히트맵\n"
-        "/뉴스 — 월가 뉴스 한국어 요약 (호재/악재)\n"
-        "/뉴스 NVDA — 특정 종목 뉴스\n"
-        "/한줄 — 오늘 시장 150자 요약 (공유용)\n"
+        "/뉴스 — 월가 뉴스 AI 분석\n"
+        "/AI — 나만의 watchlist 기반 브리핑\n"
+        "/한줄 — 오늘 시장 공유용 요약\n"
         "/주간 — 이번 주 지수 성적표\n\n"
-        "/구독 — 매일 8시 자동 브리핑 구독\n"
-        "/구독취소 — 구독 해제\n"
-        "/지난브리핑 — 어제 브리핑 다시보기"
+        "/구독 — 매일 8시 자동 브리핑\n"
+        "/알람 09:00 — 원하는 시각 시황 자동 전송\n"
+        "/구독취소 — 구독 해제"
     ),
     "__help_stock": (
         "🔍 <b>종목 분석</b>\n\n"
-        "<b>티커 직접 입력:</b>\n"
-        "<code>NVDA</code>  <code>TSLA</code>  <code>AAPL</code>  <code>MSFT</code>\n\n"
-        "<b>한국어로 입력:</b>\n"
-        "<code>엔비디아</code>  <code>테슬라</code>  <code>삼성전자</code>\n\n"
+        "<b>티커/한국어 직접 입력:</b>\n"
+        "<code>NVDA</code> <code>엔비디아</code> <code>테슬라</code>\n\n"
         "/비교 NVDA TSLA — 두 종목 AI 비교\n"
         "/종목전망 NVDA — 주간 AI 전망\n"
-        "/차트 NVDA — 30일 스파크라인 차트\n"
-        "/sector 반도체 — 섹터 ETF 분석\n"
-        "/상승 반도체 — 섹터별 상승 TOP5\n"
-        "/하락 — 하락 TOP5"
+        "/차트 NVDA — 30일 스파크라인\n"
+        "/뉴스 NVDA — 종목 뉴스 AI 분석\n\n"
+        "<b>스크리너:</b>\n"
+        "/모멘텀 — RSI+MA 모멘텀 종목\n"
+        "/52주 — 52주 신고가/신저가 근접\n"
+        "/배당 — 고배당 TOP10"
     ),
     "__help_watchlist": (
         "📋 <b>관심종목 & 포트폴리오</b>\n\n"
@@ -175,12 +176,13 @@ HELP_TEXTS = {
     ),
     "__help_macro": (
         "🌐 <b>매크로 & 경제지표</b>\n\n"
-        "/매크로 — VIX, DXY, 금리, WTI, 금, BTC\n"
-        "  AI 한국어 해석 포함\n\n"
-        "/캘린더 — FOMC, CPI, NFP, PCE 일정\n"
-        "  D-카운트다운 + 지난 지표 표시\n\n"
-        "/환율 — USD/KRW, USD/JPY, USD/CNY\n"
-        "  AI 환율 전망 포함"
+        "/금리 — 2/10/30년물 국채금리 + 수익률 곡선\n"
+        "/원자재 — 금/은/오일/구리/천연가스\n"
+        "/ETF — QQQ/SPY/ARKK/SOXX 등 ETF 분석\n"
+        "/섹터 — SPDR 섹터별 성적표 + AI\n\n"
+        "/매크로 — VIX, DXY, 금리, WTI 종합\n"
+        "/캘린더 — FOMC/CPI/NFP 일정\n"
+        "/환율 — USD/KRW, JPY, CNY AI 전망"
     ),
     "__help_ranking": (
         "🪙 <b>랭킹 & 통계</b>\n\n"
@@ -189,7 +191,7 @@ HELP_TEXTS = {
         "/랭킹 kr — 코스피 대형주 랭킹\n\n"
         "/내통계 — 내 구독/관심종목/알림 현황\n"
         "/설정 — 개인 설정 보기\n\n"
-        "9haejo.vercel.app 에서 웹으로도 확인 가능!"
+        "9haejo.vercel.app 에서 웹으로도 확인!"
     ),
 }
 
