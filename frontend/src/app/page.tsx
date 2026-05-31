@@ -969,6 +969,7 @@ export default function Home() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>텔레그램 봇</a>
                   <a href="#subscribe" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>구독하기</a>
+                  <a href="/briefings" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>브리핑 아카이브</a>
                 </div>
               </div>
               <div>
