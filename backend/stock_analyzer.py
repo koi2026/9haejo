@@ -14,6 +14,46 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 logger = logging.getLogger(__name__)
 
 AV_KEY = os.getenv("ALPHA_VANTAGE_KEY", "")
+
+
+def claude_call(model: str, prompt: str, max_tokens: int = 700, max_retries: int = 3) -> str:
+    """Anthropic API 호출 with rate limit 자동 재시도.
+    429/rate_limit_error 발생 시 retry-after 헤더(또는 60s) 대기 후 재시도.
+    """
+    import time as _time
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    for attempt in range(max_retries):
+        try:
+            msg = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text
+        except anthropic.RateLimitError as e:
+            wait = 60
+            # 헤더에서 retry-after 파싱 시도
+            try:
+                hdr = getattr(e, "response", None)
+                if hdr is not None:
+                    ra = hdr.headers.get("retry-after") or hdr.headers.get("x-ratelimit-reset-requests")
+                    if ra:
+                        wait = max(int(float(ra)), 5)
+            except Exception:
+                pass
+            if attempt < max_retries - 1:
+                logger.warning("Claude rate limit (attempt %d/%d). Waiting %ds...", attempt + 1, max_retries, wait)
+                _time.sleep(wait)
+            else:
+                logger.error("Claude rate limit exhausted after %d attempts", max_retries)
+                raise
+        except anthropic.APIStatusError as e:
+            if e.status_code == 529 and attempt < max_retries - 1:
+                # Overloaded
+                logger.warning("Claude overloaded, waiting 30s...")
+                _time.sleep(30)
+            else:
+                raise
 AV_BASE = "https://www.alphavantage.co/query"
 
 KR_TO_TICKER = {
@@ -192,13 +232,7 @@ def analyze_stock(query: str) -> str:
     ]
     prompt = "\n".join(lines)
 
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    msg = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=500,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return msg.content[0].text
+    return claude_call("claude-haiku-4-5", prompt, max_tokens=500)
 
 
 if __name__ == "__main__":
@@ -255,13 +289,7 @@ Format:
 [one clear winner statement with reasoning]
 [risk disclaimer]"""
 
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    msg = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=600,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return msg.content[0].text
+    return claude_call("claude-haiku-4-5", prompt, max_tokens=600)
 
 
 def summarize_news(ticker: str = "") -> str:
@@ -288,10 +316,7 @@ def summarize_news(ticker: str = "") -> str:
 Use emojis. 1-2 sentences each. Include buy/sell/hold implications. MAX 500 chars total.
 News:
 {news_text}"""
-            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-            msg = client.messages.create(model="claude-haiku-4-5", max_tokens=600,
-                                          messages=[{"role": "user", "content": prompt}])
-            result = f"📰 <b>{ticker} 뉴스 요약</b>\n\n" + msg.content[0].text
+            result = f"📰 <b>{ticker} 뉴스 요약</b>\n\n" + claude_call("claude-haiku-4-5", prompt, max_tokens=600)
             news_cache.set(cache_key, result)
             return result
         except Exception as e:
@@ -329,15 +354,51 @@ Format:
 News:
 {news_text}"""
 
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    msg = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=700,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    result = msg.content[0].text
+    result = claude_call("claude-haiku-4-5", prompt, max_tokens=700)
     news_cache.set(today_key, result)
     return result
+
+
+def portfolio_health_score(quotes: dict) -> tuple[int, str]:
+    """포트폴리오 건강도 점수 (0-100) + 등급"""
+    if not quotes:
+        return 0, "F"
+    score = 70  # 기본점수
+
+    # 분산도: 종목 수 (2~10개 최적)
+    n = len(quotes)
+    if n >= 5:
+        score += 10
+    elif n >= 3:
+        score += 5
+    elif n == 1:
+        score -= 15  # 단일종목 리스크
+
+    # 등락률 분포: 상승 비율
+    pcts = [q.get("change_pct", 0) for q in quotes.values()]
+    up_ratio = sum(1 for p in pcts if p > 0) / len(pcts)
+    score += int(up_ratio * 20) - 10  # -10 ~ +10
+
+    # 변동성: 최대 등락 차이
+    if pcts:
+        spread = max(pcts) - min(pcts)
+        if spread > 10:
+            score -= 10  # 고변동성 패널티
+        elif spread < 3:
+            score += 5   # 안정성 보너스
+
+    score = max(0, min(100, score))
+    if score >= 80:
+        grade = "A"
+    elif score >= 65:
+        grade = "B"
+    elif score >= 50:
+        grade = "C"
+    elif score >= 35:
+        grade = "D"
+    else:
+        grade = "F"
+    return score, grade
 
 
 def analyze_portfolio(tickers: list[str]) -> str:
@@ -385,13 +446,15 @@ Format:
 Holdings:
 {portfolio_text}"""
 
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    msg = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=800,
-        messages=[{"role": "user", "content": prompt}],
+    score, grade = portfolio_health_score(quotes)
+    score_bar = "█" * (score // 10) + "░" * (10 - score // 10)
+    grade_emoji = {"A": "🟢", "B": "🟡", "C": "🟠", "D": "🔴", "F": "⚫"}.get(grade, "⚪")
+    header = (
+        f"<b>📋 포트폴리오 AI 진단</b>\n\n"
+        f"<b>건강도 점수</b>: {grade_emoji} {score}/100 (등급 {grade})\n"
+        f"<code>{score_bar}</code>\n\n"
     )
-    return f"<b>📋 포트폴리오 AI 진단</b>\n\n" + msg.content[0].text
+    return header + claude_call("claude-haiku-4-5", prompt, max_tokens=800)
 
 
 def analyze_outlook(ticker: str) -> str:
@@ -425,13 +488,7 @@ Format:
 [risk factor]
 [1-line verdict: buy/hold/watch with reasoning]"""
 
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    msg = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=600,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return msg.content[0].text
+    return claude_call("claude-haiku-4-5", prompt, max_tokens=600)
 
 
 def analyze_macro() -> str:
@@ -482,16 +539,8 @@ Line 5: One concrete Korean stock action item
 Data:
 {data_text}"""
 
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    msg = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=700,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    header = "<b>🌐 매크로 시황</b>\n\n"
-    data_block = "\n".join(f"  {r}" for r in rows) + "\n\n"
-    ai_text = msg.content[0].text
-    result = header + "<code>" + "\n".join(rows) + "</code>\n\n" + ai_text
+    ai_text = claude_call("claude-haiku-4-5", prompt, max_tokens=700)
+    result = "<b>🌐 매크로 시황</b>\n\n" + "<code>" + "\n".join(rows) + "</code>\n\n" + ai_text
     quote_cache.set("macro_analysis", result)
     return result
 
@@ -522,12 +571,7 @@ def one_line_summary() -> str:
         f"Start with an emoji. Include 1 key number. End with '내일 주목:' + one thing to watch.\n"
         f"Data: {context}\nOutput ONLY the sentence, no explanation."
     )
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    msg = client.messages.create(
-        model="claude-haiku-4-5", max_tokens=150,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    result = msg.content[0].text.strip()
+    result = claude_call("claude-haiku-4-5", prompt, max_tokens=150).strip()
     quote_cache.set("one_line", result)
     return result
 
