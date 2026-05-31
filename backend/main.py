@@ -461,17 +461,40 @@ def calendar_upcoming():
 
 @app.get("/stock/quote/{ticker}")
 def stock_quote(ticker: str):
-    """단일 종목 실시간 시세 + 기본 정보 (프론트 위젯용, 60초 캐시)"""
+    """단일 종목 실시간 시세 + 52주 데이터 (프론트 위젯용, 60초 캐시)"""
+    import yfinance as yf
     from cache import news_cache
     from collector import yf_quote
     ticker = ticker.upper().strip()
-    cache_key = f"quote:{ticker}"
+    cache_key = f"quote2:{ticker}"
     cached = news_cache.get(cache_key)
     if cached:
         return cached
     q = yf_quote(ticker)
     if not q:
         return {"error": "종목을 찾을 수 없습니다", "ticker": ticker}
+    # 52주 고/저가 추가
+    try:
+        info = yf.Ticker(ticker).info
+        h52 = info.get("fiftyTwoWeekHigh")
+        l52 = info.get("fiftyTwoWeekLow")
+        name = info.get("shortName") or info.get("longName") or ticker
+        sector = info.get("sector", "")
+        pe = info.get("trailingPE")
+        mktcap = info.get("marketCap")
+        q["week52_high"] = round(h52, 2) if h52 else None
+        q["week52_low"] = round(l52, 2) if l52 else None
+        q["name"] = name
+        q["sector"] = sector
+        q["pe_ratio"] = round(pe, 1) if pe else None
+        q["market_cap"] = mktcap
+        if h52 and l52 and h52 > l52:
+            pos = (q["price"] - l52) / (h52 - l52) * 100
+            q["week52_position"] = round(pos, 1)
+        else:
+            q["week52_position"] = None
+    except Exception:
+        pass
     result = {"ticker": ticker, **q}
     news_cache.set(cache_key, result)
     return result
