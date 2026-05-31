@@ -108,6 +108,9 @@ MAIN_MENU = {
     ], [
         {"text": "🏭 섹터 ETF 분석", "callback_data": "/섹터"},
         {"text": "📊 52주 고저가", "callback_data": "/52주"},
+    ], [
+        {"text": "🤖 나만의 AI 브리핑", "callback_data": "/AI"},
+        {"text": "🚀 모멘텀 스크리너", "callback_data": "/모멘텀"},
     ]]
 }
 
@@ -664,6 +667,20 @@ def handle_update(update: dict):
                 except Exception as e:
                     logger.error("news error: %s", e)
                     send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
+
+        # ── /AI ──────────────────────────────────────
+        elif cmd in ["/ai", "/AI", "/나의브리핑", "/개인브리핑"]:
+            import json as _json
+            wl_db = _json.loads(_WL_PATH.read_text(encoding="utf-8")) if _WL_PATH.exists() else {}
+            user_wl = wl_db.get(chat_id, [])
+            send(chat_id, "🤖 개인화 AI 브리핑 생성 중...")
+            try:
+                from stock_analyzer import personalized_ai_report
+                result = personalized_ai_report(chat_id, user_wl)
+                send(chat_id, result)
+            except Exception as e:
+                logger.error("personalized AI error: %s", e)
+                send(chat_id, "AI 브리핑 생성 중 오류가 발생했어요.")
 
         # ── /모멘텀 ──────────────────────────────────
         elif cmd in ["/모멘텀", "/momentum", "/모멘"]:
