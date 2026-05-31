@@ -13,6 +13,40 @@ def get_client():
     return anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 
+def claude_call_with_retry(client, model: str, prompt: str, max_tokens: int, max_retries: int = 3) -> str:
+    """Rate limit 자동 재시도 래퍼"""
+    import time as _time
+    for attempt in range(max_retries):
+        try:
+            msg = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text
+        except anthropic.RateLimitError as e:
+            wait = 60
+            try:
+                hdr = getattr(e, "response", None)
+                if hdr is not None:
+                    ra = hdr.headers.get("retry-after") or hdr.headers.get("x-ratelimit-reset-requests")
+                    if ra:
+                        wait = max(int(float(ra)), 5)
+            except Exception:
+                pass
+            if attempt < max_retries - 1:
+                logger.warning("Claude rate limit (summarizer, attempt %d/%d). Waiting %ds...", attempt + 1, max_retries, wait)
+                _time.sleep(wait)
+            else:
+                raise
+        except anthropic.APIStatusError as e:
+            if e.status_code == 529 and attempt < max_retries - 1:
+                logger.warning("Claude overloaded (summarizer). Waiting 30s...")
+                _time.sleep(30)
+            else:
+                raise
+
+
 def arrow(pct):
     if pct is None: return ""
     return "+" if pct >= 0 else ""
@@ -150,12 +184,7 @@ End with: "구독: @goohaejo_bot"
 """
 
     client = get_client()
-    msg = client.messages.create(
-        model="claude-opus-4-5",
-        max_tokens=2500,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw    = msg.content[0].text
+    raw = claude_call_with_retry(client, "claude-opus-4-5", prompt, max_tokens=2500)
     tweets = [t.strip() for t in raw.split("---") if t.strip()][:5]
     while len(tweets) < 5:
         tweets.append(f"[{len(tweets)+1}/5] 분석 준비 중...")

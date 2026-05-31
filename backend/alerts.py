@@ -94,18 +94,13 @@ def check_and_fire_alerts():
                     # AI 코멘트 생성 (haiku, fast)
                     ai_comment = ""
                     try:
-                        import os, anthropic as _ant
-                        _client = _ant.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+                        from stock_analyzer import claude_call
                         _prompt = (
                             f"{alert['ticker']} just {'broke above' if direction=='above' else 'dropped below'} "
                             f"${target:,.2f} (current: ${price:,.2f}, {sign}{pct:.2f}% today). "
                             f"Give a 1-sentence Korean action advice for retail investors. MAX 80 chars. No emoji."
                         )
-                        _msg = _client.messages.create(
-                            model="claude-haiku-4-5", max_tokens=100,
-                            messages=[{"role": "user", "content": _prompt}]
-                        )
-                        ai_comment = "\n\nAI: " + _msg.content[0].text.strip()
+                        ai_comment = "\n\nAI: " + claude_call("claude-haiku-4-5", _prompt, max_tokens=100).strip()
                     except Exception:
                         pass
                     msg = (
