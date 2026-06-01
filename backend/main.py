@@ -295,8 +295,20 @@ def startup_scheduler():
         id="realtime_updates",
         replace_existing=True,
     )
+    # 캐시 만료 항목 정리: 30분마다
+    def purge_caches():
+        from cache import quote_cache, news_cache, analysis_cache
+        n = quote_cache.purge_expired() + news_cache.purge_expired() + analysis_cache.purge_expired()
+        if n > 0:
+            logger.info("Cache purge: %d expired entries removed", n)
+    _scheduler.add_job(
+        purge_caches,
+        IntervalTrigger(minutes=30),
+        id="cache_purge",
+        replace_existing=True,
+    )
     _scheduler.start()
-    logger.info("Scheduler started: daily_briefing + price_alerts + user_alarms + realtime_updates")
+    logger.info("Scheduler started: daily_briefing + price_alerts + user_alarms + realtime_updates + cache_purge")
 
 
 @app.on_event("shutdown")
@@ -482,6 +494,7 @@ def admin_stats():
     except Exception:
         pass
 
+    from cache import quote_cache, news_cache, analysis_cache
     return {
         "subscribers": count(),
         "total_price_alerts": total_alerts,
@@ -491,6 +504,11 @@ def admin_stats():
         "last_briefing_date": _last_summary.get("date"),
         "next_briefing_utc": next_briefing,
         "scheduler_running": _scheduler.running,
+        "cache": {
+            "quote": quote_cache.stats(),
+            "news": news_cache.stats(),
+            "analysis": analysis_cache.stats(),
+        },
     }
 
 
