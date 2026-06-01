@@ -227,6 +227,16 @@ def handle_update(update: dict):
                     ))
                 else:
                     send(chat_id, f"{ticker} 알림이 없습니다.")
+            elif cb_data == "__help_position":
+                send(chat_id, (
+                    "<b>포지션 추가 방법</b>\n\n"
+                    "/포지션 add NVDA 10 875.50\n"
+                    "  → NVDA 10주, 매수가 $875.50\n\n"
+                    "/포지션 add TSLA 5\n"
+                    "  → 현재가로 매수가 자동 설정\n\n"
+                    "/포지션 remove NVDA — 삭제\n"
+                    "/포지션 — 전체 수익률 확인"
+                ))
             elif cb_data in ("__news_bullish", "__news_bearish"):
                 sentiment = "Bullish" if cb_data == "__news_bullish" else "Bearish"
                 label = "🟢 호재" if sentiment == "Bullish" else "🔴 악재"
@@ -1512,8 +1522,116 @@ Max 350 chars. Specific and actionable."""
                     total_pct = (total_pnl / total_invested * 100) if total_invested else 0
                     lines.append(f"\n<b>총 투자금액:</b> ${total_invested:,.0f}")
                     lines.append(f"<b>현재 평가금액:</b> ${total_value:,.0f}")
-                    lines.append(f"<b>총 수익:</b> {'+' if total_pnl >= 0 else ''}{total_pnl:,.0f}$ ({total_pct:+.1f}%)")
+                    total_arrow = "▲" if total_pnl >= 0 else "▼"
+                    lines.append(f"<b>총 수익:</b> {total_arrow}{abs(total_pct):.1f}% (${total_pnl:+,.0f})")
+                    # S&P500 벤치마크 비교
+                    try:
+                        spy_q = yf_quote("SPY")
+                        if spy_q:
+                            spy_pct = spy_q["change_pct"]
+                            alpha = total_pct - spy_pct
+                            spy_line = f"<b>vs S&P500:</b> {'+' if spy_pct>=0 else ''}{spy_pct:.2f}% | 알파: {'+' if alpha>=0 else ''}{alpha:.2f}%"
+                            if alpha > 0:
+                                spy_line += " 🏆 시장 초과수익!"
+                            elif alpha < -1:
+                                spy_line += " ⚠️ 시장 하회"
+                            lines.append(spy_line)
+                    except Exception:
+                        pass
+                    markup = {"inline_keyboard": [[
+                        {"text": "➕ 포지션 추가", "callback_data": "__help_position"},
+                        {"text": "🤖 AI 포트 진단", "callback_data": "/포트폴리오"},
+                    ]]}
+                    send(chat_id, "\n".join(lines), reply_markup=markup)
+
+        # ── /비교 — 두 종목 비교 ─────────────────────────────
+        elif cmd in ["/비교", "/compare", "/vs"]:
+            parts = text.split()
+            if len(parts) < 3:
+                send(chat_id, "사용법: /비교 NVDA TSLA\n두 종목을 나란히 비교합니다.")
+            else:
+                raw1 = parts[1].upper()
+                raw2 = parts[2].upper()
+                t1 = resolve_ticker(raw1) or raw1
+                t2 = resolve_ticker(raw2) or raw2
+                send(chat_id, f"⚖️ <b>{t1}</b> vs <b>{t2}</b> 비교 분석 중...")
+                try:
+                    import yfinance as yf
+                    from concurrent.futures import ThreadPoolExecutor
+                    from collector import yf_quote
+                    from stock_analyzer import claude_call
+
+                    def fetch_info(ticker):
+                        try:
+                            q = yf_quote(ticker) or {}
+                            info = yf.Ticker(ticker).info or {}
+                            return {
+                                "ticker": ticker,
+                                "price": q.get("price", 0),
+                                "change_pct": q.get("change_pct", 0),
+                                "mktcap": info.get("marketCap", 0),
+                                "pe": info.get("trailingPE"),
+                                "fwd_pe": info.get("forwardPE"),
+                                "sector": info.get("sector", ""),
+                                "week52_high": info.get("fiftyTwoWeekHigh"),
+                                "week52_low": info.get("fiftyTwoWeekLow"),
+                                "name": info.get("shortName", ticker),
+                                "div_yield": info.get("dividendYield"),
+                                "revenue_growth": info.get("revenueGrowth"),
+                            }
+                        except Exception:
+                            return {"ticker": ticker, "price": 0, "change_pct": 0, "mktcap": 0, "pe": None, "fwd_pe": None, "sector": "", "week52_high": None, "week52_low": None, "name": ticker, "div_yield": None, "revenue_growth": None}
+
+                    with ThreadPoolExecutor(max_workers=2) as ex:
+                        d1, d2 = list(ex.map(fetch_info, [t1, t2]))
+
+                    def fmt_cap(v):
+                        if not v: return "N/A"
+                        if v >= 1e12: return f"${v/1e12:.2f}T"
+                        if v >= 1e9: return f"${v/1e9:.1f}B"
+                        return f"${v/1e6:.0f}M"
+                    def fmt_pct_val(v):
+                        if v is None: return "N/A"
+                        return f"{v*100:.1f}%"
+                    def from_52w(price, low, high):
+                        if not price or not low or not high or high == low: return "N/A"
+                        pct = (price - low) / (high - low) * 100
+                        return f"{pct:.0f}% (52주 범위)"
+                    def win(v1, v2, higher_better=True):
+                        if v1 is None or v2 is None: return ("", "")
+                        if higher_better:
+                            return (" 🏆", "") if v1 > v2 else ("", " 🏆")
+                        else:
+                            return (" 🏆", "") if v1 < v2 else ("", " 🏆")
+
+                    p_w = win(d1["change_pct"], d2["change_pct"])
+                    cap_w = win(d1["mktcap"], d2["mktcap"])
+                    pe_w = win(d1.get("pe"), d2.get("pe"), higher_better=False)
+                    rev_w = win(d1.get("revenue_growth"), d2.get("revenue_growth"))
+
+                    lines = [
+                        f"<b>⚖️ {t1} vs {t2} 비교</b>\n",
+                        f"{'지표':<12} {'':>2}{t1:<10} {'':>2}{t2}",
+                        f"{'─'*36}",
+                        f"{'가격':<10} ${d1['price']:,.2f}{p_w[0]:<4}  ${d2['price']:,.2f}{p_w[1]}",
+                        f"{'등락률':<10} {'+' if d1['change_pct']>=0 else ''}{d1['change_pct']:.2f}%{p_w[0]:<2}  {'+' if d2['change_pct']>=0 else ''}{d2['change_pct']:.2f}%{p_w[1]}",
+                        f"{'시가총액':<9} {fmt_cap(d1['mktcap'])}{cap_w[0]:<2}  {fmt_cap(d2['mktcap'])}{cap_w[1]}",
+                        f"{'PER':<12} {(str(round(d1['pe'],1)) if d1['pe'] else 'N/A')}{pe_w[0]:<4}  {(str(round(d2['pe'],1)) if d2['pe'] else 'N/A')}{pe_w[1]}",
+                        f"{'성장률':<10} {fmt_pct_val(d1['revenue_growth'])}{rev_w[0]:<2}  {fmt_pct_val(d2['revenue_growth'])}{rev_w[1]}",
+                        f"{'섹터':<12} {d1['sector'][:10] or 'N/A':<12}  {d2['sector'][:10] or 'N/A'}",
+                    ]
+
+                    prompt = f"""Compare {t1} ({d1['name']}) vs {t2} ({d2['name']}) for Korean investors.
+Data:
+{t1}: price=${d1['price']:.2f} change={d1['change_pct']:.2f}% mktcap={fmt_cap(d1['mktcap'])} PE={d1['pe']} fwdPE={d1['fwd_pe']} revenue_growth={fmt_pct_val(d1['revenue_growth'])} sector={d1['sector']}
+{t2}: price=${d2['price']:.2f} change={d2['change_pct']:.2f}% mktcap={fmt_cap(d2['mktcap'])} PE={d2['pe']} fwdPE={d2['fwd_pe']} revenue_growth={fmt_pct_val(d2['revenue_growth'])} sector={d2['sector']}
+Write 3 sentences in Korean: (1) key difference, (2) who should buy which, (3) overall winner with reason. Max 200 chars total. Use <b>bold</b> for winner."""
+                    ai_verdict = claude_call(prompt, max_tokens=200)
+                    lines.append(f"\n{ai_verdict}")
                     send(chat_id, "\n".join(lines))
+                except Exception as e:
+                    logger.error("compare error: %s", e)
+                    send(chat_id, f"비교 분석 중 오류가 발생했습니다: {e}")
 
         # ── /비교 — 두 종목 비교 ─────────────────────────────
         elif cmd in ["/비교", "/compare", "/vs"]:
