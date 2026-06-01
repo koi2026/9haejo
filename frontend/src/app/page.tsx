@@ -841,6 +841,7 @@ export default function Home() {
   const [historyBriefing, setHistoryBriefing] = useState<{ [date: string]: string[] }>({});
   const [sparklines, setSparklines] = useState<{ [ticker: string]: number[] }>({});
   const [trending, setTrending] = useState<{ ticker: string; price: number; change_pct: number; mentions: number; sentiment_score: number }[]>([]);
+  const [movers, setMovers] = useState<{ gainers: { ticker: string; price: number; change_pct: number }[]; losers: { ticker: string; price: number; change_pct: number }[] } | null>(null);
   const [marketData, setMarketData] = useState<{
     indices: Record<string, { price: number; change_pct: number }>;
     fx: Record<string, { price: number; change_pct: number }>;
@@ -911,6 +912,12 @@ export default function Home() {
     fetch(`${API}/market/trending`)
       .then(r => r.json())
       .then(d => { if (d.tickers?.length) setTrending(d.tickers); })
+      .catch(() => {});
+
+    // 당일 상승/하락 상위 종목
+    fetch(`${API}/market/movers`)
+      .then(r => r.json())
+      .then(d => { if (d.gainers?.length || d.losers?.length) setMovers(d); })
       .catch(() => {});
 
 
@@ -1224,6 +1231,60 @@ export default function Home() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* TOP MOVERS */}
+      {movers && (
+        <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "28px 24px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 3 }}>TOP MOVERS</span>
+              <span style={{ fontSize: 11, color: C.muted }}>당일 상승/하락 상위</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {/* Gainers */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.green, marginBottom: 8, letterSpacing: 1 }}>🟢 상승 TOP 5</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {movers.gainers.map((t, i) => (
+                    <Link key={t.ticker} href={`/stock/${t.ticker}`} style={{ textDecoration: "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.green}20`, cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 12, color: C.muted, fontFamily: "monospace", width: 14 }}>{i + 1}</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: C.text, fontFamily: "monospace" }}>{t.ticker}</span>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.green }}>+{t.change_pct.toFixed(2)}%</div>
+                          <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>${t.price.toFixed(t.price < 10 ? 3 : 2)}</div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              {/* Losers */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.red, marginBottom: 8, letterSpacing: 1 }}>🔴 하락 TOP 5</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {movers.losers.map((t, i) => (
+                    <Link key={t.ticker} href={`/stock/${t.ticker}`} style={{ textDecoration: "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.red}20`, cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 12, color: C.muted, fontFamily: "monospace", width: 14 }}>{i + 1}</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: C.text, fontFamily: "monospace" }}>{t.ticker}</span>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.red }}>{t.change_pct.toFixed(2)}%</div>
+                          <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>${t.price.toFixed(t.price < 10 ? 3 : 2)}</div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>

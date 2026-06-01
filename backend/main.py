@@ -564,14 +564,14 @@ def stock_history(ticker: str, days: int = 7):
     from cache import news_cache
     import yfinance as yf
     ticker = ticker.upper().strip()
-    days = max(5, min(days, 30))
+    days = max(5, min(days, 90))
     cache_key = f"hist:{ticker}:{days}"
     cached = news_cache.get(cache_key)
     if cached:
         return cached
     try:
         t = yf.Ticker(ticker)
-        hist = t.history(period=f"{days + 3}d")
+        hist = t.history(period=f"{days + 5}d")
         if hist.empty:
             return {"error": "데이터 없음", "ticker": ticker}
         prices = [round(float(p), 2) for p in hist["Close"].tolist()[-days:]]
@@ -869,3 +869,41 @@ def trending_searches():
     """가장 많이 검색된 종목 TOP5"""
     from search_counter import get_top
     return {"tickers": get_top(5)}
+
+
+_MOVERS_POOL = [
+    "NVDA","TSLA","AAPL","MSFT","AMZN","META","GOOGL","AVGO","AMD","PLTR",
+    "NFLX","CRM","ORCL","COIN","MSTR","JPM","GS","BAC","LLY","UNH",
+    "XOM","V","MA","INTC","QCOM","UBER","SNOW","SHOP","SQ","RBLX",
+    "SOFI","RIVN","LCID","NIO","BABA","JD","PDD","ARM","SMCI","MU",
+]
+
+@app.get("/market/movers")
+def market_movers():
+    """당일 상승/하락 상위 종목 (5분 캐시)"""
+    from cache import quote_cache
+    from collector import yf_quote
+    from concurrent.futures import ThreadPoolExecutor
+    cached = quote_cache.get("market_movers")
+    if cached:
+        return cached
+
+    def _q(sym):
+        try:
+            return sym, yf_quote(sym)
+        except Exception:
+            return sym, None
+
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        results = list(ex.map(_q, _MOVERS_POOL))
+
+    stocks = []
+    for sym, q in results:
+        if q and q.get("price") and q.get("change_pct") is not None:
+            stocks.append({"ticker": sym, "price": q["price"], "change_pct": q["change_pct"]})
+
+    gainers = sorted(stocks, key=lambda x: -x["change_pct"])[:5]
+    losers = sorted(stocks, key=lambda x: x["change_pct"])[:5]
+    result = {"gainers": gainers, "losers": losers}
+    quote_cache.set("market_movers", result)
+    return result
