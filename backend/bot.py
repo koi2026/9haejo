@@ -1422,6 +1422,70 @@ def handle_update(update: dict):
                     lines.append(f"<b>총 수익:</b> {'+' if total_pnl >= 0 else ''}{total_pnl:,.0f}$ ({total_pct:+.1f}%)")
                     send(chat_id, "\n".join(lines))
 
+        # ── /비슷한 — 유사 종목 추천 ───────────────────────
+        elif cmd in ["/비슷한", "/similar", "/유사종목"]:
+            parts = text.split()
+            if len(parts) < 2:
+                send(chat_id, "사용법: /비슷한 NVDA")
+            else:
+                raw = parts[1].upper()
+                from stock_analyzer import resolve_ticker
+                ticker = resolve_ticker(raw) or raw
+                send(chat_id, f"🔍 <b>{ticker}</b>와 유사한 종목 검색 중...")
+                try:
+                    import yfinance as yf
+                    from collector import yf_quote
+                    from stock_analyzer import claude_call
+                    t = yf.Ticker(ticker)
+                    info = t.info or {}
+                    sector = info.get("sector", "")
+                    industry = info.get("industry", "")
+                    market_cap = info.get("marketCap", 0)
+                    pe = info.get("trailingPE", None)
+                    # Peer comparison: use same sector ETF's top holdings or a predefined map
+                    SECTOR_PEERS = {
+                        "Technology": ["NVDA", "MSFT", "AAPL", "GOOGL", "META", "AMD", "INTC", "AVGO", "CRM", "ORCL"],
+                        "Consumer Cyclical": ["TSLA", "AMZN", "HD", "NKE", "MCD", "SBUX", "BKNG", "ABNB"],
+                        "Financial Services": ["JPM", "GS", "BAC", "WFC", "MS", "V", "MA", "BRK-B"],
+                        "Healthcare": ["LLY", "UNH", "JNJ", "PFE", "ABBV", "MRK", "AMGN", "GILD"],
+                        "Energy": ["XOM", "CVX", "COP", "EOG", "SLB", "OXY", "PSX"],
+                        "Communication Services": ["META", "GOOGL", "NFLX", "TMUS", "VZ", "DIS", "ATVI"],
+                        "Industrials": ["CAT", "HON", "UPS", "FDX", "GE", "BA", "RTX", "LMT"],
+                        "Basic Materials": ["LIN", "SHW", "ECL", "APD", "FCX", "NEM"],
+                        "Real Estate": ["AMT", "PLD", "EQIX", "SPG", "O"],
+                        "Consumer Defensive": ["WMT", "PG", "KO", "PEP", "COST", "MO"],
+                        "Utilities": ["NEE", "DUK", "SO", "D", "AEP"],
+                    }
+                    peers = [p for p in SECTOR_PEERS.get(sector, ["SPY","QQQ","VTI","GLD","TLT"]) if p != ticker][:8]
+                    # Fetch peers' data in parallel
+                    from concurrent.futures import ThreadPoolExecutor
+                    def fetch_peer(sym):
+                        q = yf_quote(sym)
+                        if not q: return None
+                        pi = yf.Ticker(sym).info or {}
+                        return {
+                            "ticker": sym,
+                            "price": q["price"],
+                            "change_pct": q["change_pct"],
+                            "pe": pi.get("trailingPE"),
+                            "market_cap": pi.get("marketCap", 0),
+                        }
+                    with ThreadPoolExecutor(max_workers=5) as ex:
+                        peer_data = list(filter(None, ex.map(fetch_peer, peers[:5])))
+                    lines = [f"<b>🔍 {ticker} 유사 종목</b>\n"]
+                    lines.append(f"섹터: {sector or 'N/A'} | 업종: {industry or 'N/A'}\n")
+                    for p in peer_data:
+                        arrow = "▲" if p["change_pct"] >= 0 else "▼"
+                        pe_str = f"PER {p['pe']:.0f}" if p.get("pe") else ""
+                        cap_str = f"${p['market_cap']/1e9:.0f}B" if p.get("market_cap") else ""
+                        lines.append(f"• <b>{p['ticker']}</b> ${p['price']:,.2f} {arrow}{abs(p['change_pct']):.2f}% {pe_str} {cap_str}")
+                    if not peer_data:
+                        lines.append("유사 종목 데이터를 찾을 수 없습니다.")
+                    send(chat_id, "\n".join(lines))
+                except Exception as e:
+                    logger.error("similar stocks error: %s", e)
+                    send(chat_id, "유사 종목 검색 중 오류가 발생했습니다.")
+
         # ── /퀴즈 — 주식 지식 퀴즈 ──────────────────────────
         elif cmd in ["/퀴즈", "/quiz", "/학습"]:
             import random
