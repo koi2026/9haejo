@@ -83,6 +83,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [chartDays, setChartDays] = useState(30);
   const [chartPrices, setChartPrices] = useState<number[]>([]);
   const [chartDates, setChartDates] = useState<string[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
   const [technicals, setTechnicals] = useState<{
     rsi: number; rsi_signal: string;
     ma20: number; ma50: number | null;
@@ -91,15 +92,24 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     vol_ratio: number; vol_spike: boolean; trend: string;
   } | null>(null);
 
+  const fetchQuote = () => {
+    fetch(`${API}/stock/${upperTicker}`)
+      .then(r => r.json())
+      .then(d => { if (!d.error) { setData(d); setLastUpdated(Date.now()); } })
+      .catch(() => {});
+  };
+
   useEffect(() => {
     fetch(`${API}/stock/${upperTicker}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error);
-        else setData(d);
+        else { setData(d); setLastUpdated(Date.now()); }
       })
       .catch(() => setError("데이터를 불러오지 못했습니다."))
       .finally(() => setLoading(false));
+    // Auto-refresh every 60s
+    const refreshId = setInterval(fetchQuote, 60000);
     // 스파크라인 14일 히스토리 (헤더용)
     fetch(`${API}/stock/history/${upperTicker}?days=14`)
       .then(r => r.json())
@@ -115,6 +125,8 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
       .then(r => r.json())
       .then(d => { if (d.peers?.length) { setPeers(d.peers); setPeerSector(d.sector || ""); } })
       .catch(() => {});
+    return () => clearInterval(refreshId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upperTicker]);
 
   // 차트 기간 변경 시 재조회
@@ -127,6 +139,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
       .catch(() => {});
   }, [upperTicker, chartDays]);
 
+  const secondsAgo = Math.round((Date.now() - lastUpdated) / 1000);
   const shareUrl = `https://9haejo.vercel.app/stock/${upperTicker}`;
   const copyLink = () => {
     navigator.clipboard.writeText(shareUrl).then(() => {
@@ -205,11 +218,18 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                   )}
                 </div>
                 <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 10, color: C.green, fontFamily: "monospace", letterSpacing: 1 }}>LIVE</span>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, boxShadow: `0 0 6px ${C.green}` }} />
+                  </div>
                   <div style={{ fontSize: 36, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>
                     ${data.price.toFixed(2)}
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: data.change_pct >= 0 ? C.green : C.red }}>
                     {data.change_pct >= 0 ? "▲+" : "▼"}{data.change_pct.toFixed(2)}%
+                  </div>
+                  <div style={{ fontSize: 10, color: C.muted }}>
+                    {secondsAgo < 60 ? `${secondsAgo}초 전 업데이트` : `${Math.round(secondsAgo / 60)}분 전 업데이트`}
                   </div>
                   {sparkPrices.length > 1 && (
                     <div style={{ marginTop: 4 }}>
