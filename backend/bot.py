@@ -1800,8 +1800,29 @@ Write 3 sentences in Korean: (1) key difference, (2) who should buy which, (3) o
         # ── 종목 분석 (자유 텍스트) ──────────────────
         else:
             # 너무 짧거나 명백히 커맨드처럼 보이면 무시
-            if len(text) < 2 or text.startswith("/"):
-                send(chat_id, "❓ 명령어를 입력해주세요.\n/help 로 전체 커맨드를 확인하세요.", reply_markup=HELP_MENU)
+            if len(text) < 2:
+                return
+            if text.startswith("/"):
+                # 알 수 없는 명령어 — 유사 명령어 추천
+                typed = text.split()[0].lower().lstrip("/")
+                all_cmds = ["브리핑", "시황", "마켓", "뉴스", "watchlist", "알림", "alert",
+                            "구독", "구독취소", "비슷한", "비교", "compare", "목표가", "옵션",
+                            "공포탐욕", "스크리너", "포지션", "퀴즈", "캘린더", "실적", "IPO",
+                            "실시간", "환율", "설정", "내통계", "AI", "도움말", "help"]
+                # 단순 유사도: 공통 문자 비율
+                def similarity(a, b):
+                    a, b = a.lower(), b.lower()
+                    if a in b or b in a: return 1.0
+                    common = sum(1 for c in a if c in b)
+                    return common / max(len(a), 1)
+                similar = sorted(all_cmds, key=lambda c: similarity(typed, c), reverse=True)[:3]
+                suggest_btns = [[{"text": f"/{c}", "callback_data": f"/{c}"} for c in similar]]
+                send(chat_id, (
+                    f"❓ <b>/{typed}</b>은 없는 명령어예요.\n\n"
+                    f"혹시 이걸 찾으셨나요?\n"
+                    + "\n".join(f"  /{c}" for c in similar)
+                    + "\n\n/help 로 전체 명령어 확인"
+                ), reply_markup={"inline_keyboard": suggest_btns})
                 return
 
             from stock_analyzer import resolve_ticker
