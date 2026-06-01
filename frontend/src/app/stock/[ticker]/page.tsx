@@ -232,6 +232,28 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
               </div>
             </div>
 
+            {/* 52-week position bar */}
+            {data.week52_low && data.week52_high && data.price && (() => {
+              const pct = Math.max(0, Math.min(100, ((data.price - data.week52_low) / (data.week52_high - data.week52_low)) * 100));
+              const barColor = pct > 75 ? C.green : pct > 40 ? C.blue : C.red;
+              return (
+                <div style={{ padding: "16px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2 }}>52주 가격 위치</span>
+                    <span style={{ fontSize: 12, color: barColor, fontWeight: 700 }}>{pct.toFixed(0)}% 구간</span>
+                  </div>
+                  <div style={{ position: "relative", height: 8, borderRadius: 4, background: C.border }}>
+                    <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pct}%`, borderRadius: 4, background: barColor, transition: "width 0.6s ease" }} />
+                    <div style={{ position: "absolute", top: -3, left: `calc(${pct}% - 7px)`, width: 14, height: 14, borderRadius: "50%", background: barColor, border: "2px solid #07070f", boxShadow: `0 0 8px ${barColor}80` }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                    <span style={{ fontSize: 11, color: C.red, fontFamily: "monospace" }}>52주 최저 ${data.week52_low.toFixed(2)}</span>
+                    <span style={{ fontSize: 11, color: C.green, fontFamily: "monospace" }}>52주 최고 ${data.week52_high.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Interactive Chart */}
             <div style={{ padding: "20px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
