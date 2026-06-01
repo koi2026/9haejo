@@ -149,6 +149,7 @@ HELP_TEXTS = {
         "  예) <code>NVDA</code>  <code>엔비디아</code>  <code>테슬라</code>\n\n"
         "📊 <b>심화 분석</b>\n"
         "  /비교 NVDA TSLA — AI가 승자 판정\n"
+        "  /기술 NVDA — RSI·MACD·이평선 기술 지표\n"
         "  /뉴스 NVDA — 종목 관련 뉴스 AI 해석\n"
         "  /종목전망 NVDA — 주간 방향성 전망\n"
         "  /주간 NVDA — 7일 성과 리포트\n"
@@ -1850,6 +1851,51 @@ Write 3 sentences in Korean: (1) key difference, (2) who should buy which, (3) o
                 except Exception as e:
                     logger.error("compare error: %s", e)
                     send(chat_id, f"비교 분석 중 오류가 발생했습니다: {e}")
+
+        # ── /기술 — 기술 지표 (RSI·MACD·이평선) ──────────────
+        elif cmd in ["/기술", "/rsi", "/macd", "/technical"]:
+            parts = text.split()
+            if len(parts) < 2:
+                send(chat_id, "사용법: /기술 NVDA\nRSI·MACD·이평선 기술 지표를 확인합니다.")
+            else:
+                ticker = (resolve_ticker(parts[1]) or parts[1]).upper()
+                send(chat_id, f"📐 <b>{ticker}</b> 기술 지표 분석 중...")
+                try:
+                    import requests as _req
+                    r = _req.get(f"https://outstanding-upliftment-production-5b02.up.railway.app/stock/{ticker}/technicals", timeout=30)
+                    d = r.json()
+                    if d.get("error"):
+                        send(chat_id, f"{ticker} 데이터를 불러오지 못했습니다.")
+                    else:
+                        rsi = d["rsi"]
+                        rsi_emoji = "🔴" if rsi > 70 else "🟢" if rsi < 30 else "🟡"
+                        macd_emoji = "🟢" if d.get("macd") and d["macd"] > 0 else "🔴"
+                        vol_emoji = "⚡" if d.get("vol_spike") else "📊"
+                        ma20_arrow = "▲" if d.get("above_ma20") else "▼"
+                        ma50_arrow = ("▲" if d.get("above_ma50") else "▼") if d.get("ma50") else "—"
+                        lines = [
+                            f"📐 <b>{ticker} 기술 지표</b>\n",
+                            "━━━━━━━━━━━━━━━━━━━",
+                            f"{rsi_emoji} <b>RSI (14)</b>: {rsi} — <i>{d['rsi_signal']}</i>",
+                            f"  {'■' * int(rsi // 10)}{'□' * (10 - int(rsi // 10))} {rsi:.0f}/100",
+                            "",
+                            f"{macd_emoji} <b>MACD</b>: {d.get('macd', 'N/A')} — <i>{d.get('macd_signal', '')} 신호</i>",
+                            f"{vol_emoji} <b>거래량</b>: 평균 대비 {d.get('vol_ratio', 1):.1f}x{'  ⚡ 급증!' if d.get('vol_spike') else ''}",
+                            "",
+                            f"📈 <b>이동평균선</b>",
+                            f"  MA20: ${d.get('ma20', 0):.2f} {ma20_arrow} {'상위' if d.get('above_ma20') else '하위'}",
+                            (f"  MA50: ${d.get('ma50', 0):.2f} {ma50_arrow}" if d.get("ma50") else "  MA50: N/A"),
+                            "",
+                            f"📌 <b>추세</b>: {d.get('trend', '')}",
+                        ]
+                        markup = {"inline_keyboard": [[
+                            {"text": f"📊 {ticker} 전체 분석", "callback_data": f"/{ticker}"},
+                            {"text": "🔥 급등락 TOP5", "callback_data": "/급등"},
+                        ]]}
+                        send(chat_id, "\n".join(lines), reply_markup=markup)
+                except Exception as e:
+                    logger.error("technicals err: %s", e)
+                    send(chat_id, "기술 지표 조회 중 오류가 발생했습니다.")
 
         # ── /비교 — 두 종목 비교 ─────────────────────────────
         elif cmd in ["/비교", "/compare", "/vs"]:
