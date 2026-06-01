@@ -13,16 +13,36 @@ export default async function Image({ params }: { params: { ticker: string } }) 
   let changePct = 0;
   let name = ticker;
   let sector = "";
+  let week52High: number | null = null;
+  let week52Low: number | null = null;
+  let week52Position: number | null = null;
+  let rsi: number | null = null;
+  let rsiSignal = "";
+  let trend = "";
 
   try {
-    const r = await fetch(`${API}/stock/quote/${ticker}`, {
-      next: { revalidate: 60 },
-    });
-    const d = await r.json();
-    price = d.price ?? 0;
-    changePct = d.change_pct ?? 0;
-    name = d.name ?? ticker;
-    sector = d.sector ?? "";
+    const [qRes, techRes] = await Promise.allSettled([
+      fetch(`${API}/stock/quote/${ticker}`, { next: { revalidate: 60 } }),
+      fetch(`${API}/stock/${ticker}/technicals`, { next: { revalidate: 600 } }),
+    ]);
+    if (qRes.status === "fulfilled") {
+      const d = await qRes.value.json();
+      price = d.price ?? 0;
+      changePct = d.change_pct ?? 0;
+      name = d.name ?? ticker;
+      sector = d.sector ?? "";
+      week52High = d.week52_high ?? null;
+      week52Low = d.week52_low ?? null;
+      week52Position = d.week52_position ?? null;
+    }
+    if (techRes.status === "fulfilled") {
+      const d = await techRes.value.json();
+      if (!d.error) {
+        rsi = d.rsi ?? null;
+        rsiSignal = d.rsi_signal ?? "";
+        trend = d.trend ?? "";
+      }
+    }
   } catch {}
 
   const isUp = changePct >= 0;
@@ -129,43 +149,40 @@ export default async function Image({ params }: { params: { ticker: string } }) 
             )}
           </div>
 
-          {/* Right - Price */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-            <div
-              style={{
-                fontSize: 72,
-                fontWeight: 900,
-                color: "#e8e8f0",
-                fontFamily: "monospace",
-              }}
-            >
+          {/* Right - Price & Indicators */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+            <div style={{ fontSize: 68, fontWeight: 900, color: "#e8e8f0", fontFamily: "monospace" }}>
               ${price.toFixed(2)}
             </div>
-            <div
-              style={{
-                fontSize: 36,
-                fontWeight: 800,
-                color,
-                fontFamily: "monospace",
-                marginTop: 8,
-              }}
-            >
+            <div style={{ fontSize: 32, fontWeight: 800, color, fontFamily: "monospace" }}>
               {arrow} {sign}{changePct.toFixed(2)}%
             </div>
-            <div
-              style={{
-                marginTop: 20,
-                padding: "10px 20px",
-                borderRadius: 10,
-                background: `${color}15`,
-                border: `1px solid ${color}40`,
-                color,
-                fontSize: 18,
-                fontWeight: 700,
-              }}
-            >
-              {isUp ? "📈 상승 모멘텀" : "📉 하락 구간"}
+            {/* Indicator chips */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {rsi !== null && (
+                <div style={{ padding: "6px 14px", borderRadius: 8, background: rsi > 70 ? "#ff446615" : rsi < 30 ? "#00d97e15" : "#ffffff10", border: `1px solid ${rsi > 70 ? "#ff4466" : rsi < 30 ? "#00d97e" : "#ffffff30"}`, color: rsi > 70 ? "#ff4466" : rsi < 30 ? "#00d97e" : "#a0a0b0", fontSize: 15, fontWeight: 700 }}>
+                  RSI {rsi} · {rsiSignal}
+                </div>
+              )}
+              {trend && (
+                <div style={{ padding: "6px 14px", borderRadius: 8, background: "#3b82f615", border: "1px solid #3b82f640", color: "#3b82f6", fontSize: 15, fontWeight: 700 }}>
+                  {trend}
+                </div>
+              )}
             </div>
+            {/* 52-week bar */}
+            {week52Position !== null && week52Low !== null && week52High !== null && (
+              <div style={{ width: 280 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#6b6b80", marginBottom: 4 }}>
+                  <span>52주 최저 ${week52Low.toFixed(0)}</span>
+                  <span>${week52High.toFixed(0)} 최고</span>
+                </div>
+                <div style={{ height: 8, borderRadius: 4, background: "#1a1a2e", position: "relative" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${week52Position}%`, borderRadius: 4, background: week52Position > 75 ? green : week52Position > 40 ? "#3b82f6" : red }} />
+                </div>
+                <div style={{ fontSize: 12, color: "#6b6b80", marginTop: 4, textAlign: "right" }}>{week52Position.toFixed(0)}% 구간</div>
+              </div>
+            )}
           </div>
         </div>
 
