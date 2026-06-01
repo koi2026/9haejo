@@ -938,7 +938,7 @@ export default function Home() {
   };
 
   return (
-    <div className={isDark ? "" : "light-mode"} style={{ background: isDark ? C.bg : "#f0f4ff", minHeight: "100vh", color: isDark ? C.text : "#0d0d1a", transition: "background 0.3s, color 0.3s" }}>
+    <div className={isDark ? "" : "light-mode"} style={{ background: isDark ? C.bg : "#f0f4ff", minHeight: "100vh", color: isDark ? C.text : "#0d0d1a", transition: "background 0.3s, color 0.3s", paddingBottom: isMobile ? 72 : 0 }}>
 
       {/* NAV */}
       <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(7,7,15,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}` }}>
@@ -1564,18 +1564,22 @@ export default function Home() {
 
       {/* 모바일 하단 탭바 */}
       {isMobile && (
-        <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200, background: "rgba(7,7,15,0.96)", backdropFilter: "blur(16px)", borderTop: `1px solid ${C.border}`, padding: "8px 0 12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
+        <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200, background: "rgba(7,7,15,0.97)", backdropFilter: "blur(20px)", borderTop: `1px solid ${C.border}`, paddingBottom: "env(safe-area-inset-bottom, 8px)" }}>
+          <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center", padding: "8px 0 4px" }}>
             {[
               { icon: "📊", label: "시황", href: "#market" },
               { icon: "📰", label: "뉴스", href: "#news" },
               { icon: "📋", label: "브리핑", href: "#briefing" },
               { icon: "🔍", label: "종목", href: "#lookup" },
-              { icon: "✅", label: "구독", href: "#subscribe" },
+              { icon: "✅", label: "구독", href: "#subscribe", cta: true },
             ].map(tab => (
-              <a key={tab.label} href={tab.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, textDecoration: "none", flex: 1, padding: "4px 0" }}>
-                <span style={{ fontSize: 20 }}>{tab.icon}</span>
-                <span style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{tab.label}</span>
+              <a key={tab.label} href={tab.href} style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                textDecoration: "none", flex: 1, padding: "8px 4px",
+                minHeight: 52,
+              }}>
+                <span style={{ fontSize: 22, lineHeight: 1 }}>{tab.icon}</span>
+                <span style={{ fontSize: 10, color: (tab as {cta?: boolean}).cta ? C.green : C.muted, fontWeight: 700 }}>{tab.label}</span>
               </a>
             ))}
           </div>
