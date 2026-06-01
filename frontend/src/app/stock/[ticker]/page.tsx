@@ -68,6 +68,8 @@ function Sparkline({ prices, color }: { prices: number[]; color: string }) {
   );
 }
 
+interface PeerStock { ticker: string; price: number; change_pct: number; }
+
 export default function StockPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = use(params);
   const upperTicker = ticker.toUpperCase();
@@ -76,6 +78,8 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [sparkPrices, setSparkPrices] = useState<number[]>([]);
+  const [peers, setPeers] = useState<PeerStock[]>([]);
+  const [peerSector, setPeerSector] = useState("");
 
   useEffect(() => {
     fetch(`${API}/stock/${upperTicker}`)
@@ -90,6 +94,11 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     fetch(`${API}/stock/history/${upperTicker}?days=14`)
       .then(r => r.json())
       .then(d => { if (d.prices?.length) setSparkPrices(d.prices); })
+      .catch(() => {});
+    // 동종 종목
+    fetch(`${API}/stock/${upperTicker}/peers`)
+      .then(r => r.json())
+      .then(d => { if (d.peers?.length) { setPeers(d.peers); setPeerSector(d.sector || ""); } })
       .catch(() => {});
   }, [upperTicker]);
 
@@ -239,6 +248,31 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 텔레그램 공유
               </a>
             </div>
+
+            {/* 동종 섹터 종목 */}
+            {peers.length > 0 && (
+              <div style={{ padding: "20px 24px", borderRadius: 16, background: C.surface, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 12 }}>
+                  {peerSector ? `${peerSector.toUpperCase()} · ` : ""}PEER STOCKS
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {peers.map(p => {
+                    const up = p.change_pct >= 0;
+                    return (
+                      <Link key={p.ticker} href={`/stock/${p.ticker}`} style={{ textDecoration: "none" }}>
+                        <div style={{ padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${up ? C.green + "30" : C.red + "25"}`, minWidth: 90, cursor: "pointer" }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, fontFamily: "monospace", color: C.text }}>{p.ticker}</div>
+                          <div style={{ fontSize: 12, color: up ? C.green : C.red, fontWeight: 700, marginTop: 2 }}>
+                            {up ? "+" : ""}{p.change_pct.toFixed(2)}%
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>${p.price.toFixed(p.price < 10 ? 3 : 2)}</div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* CTA */}
             <div style={{ marginTop: 24, textAlign: "center" }}>
