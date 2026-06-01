@@ -648,6 +648,64 @@ def stock_quote(ticker: str):
     return result
 
 
+@app.get("/stock/{ticker}")
+def stock_detail(ticker: str):
+    """종목 상세 페이지용 — 시세 + AI 분석 + 통계 (캐시 10분)"""
+    import yfinance as yf
+    from cache import analysis_cache
+    from collector import yf_quote
+    ticker = ticker.upper().strip()
+    cache_key = f"stock_detail:{ticker}"
+    cached = analysis_cache.get(cache_key)
+    if cached:
+        return cached
+    q = yf_quote(ticker)
+    if not q:
+        return {"error": "종목을 찾을 수 없습니다", "ticker": ticker}
+    try:
+        info = yf.Ticker(ticker).info or {}
+        name = info.get("shortName") or info.get("longName") or ticker
+        sector = info.get("sector", "")
+        pe = info.get("trailingPE")
+        mktcap = info.get("marketCap")
+        h52 = info.get("fiftyTwoWeekHigh")
+        l52 = info.get("fiftyTwoWeekLow")
+        volume = info.get("volume") or info.get("regularMarketVolume")
+        avg_vol = info.get("averageVolume") or info.get("averageDailyVolume10Day")
+    except Exception:
+        name, sector, pe, mktcap, h52, l52, volume, avg_vol = ticker, "", None, None, None, None, None, None
+
+    # AI 분석
+    analysis = ""
+    try:
+        from stock_analyzer import claude_call
+        prompt = f"""Analyze {ticker} ({name}) for Korean retail investors in Korean.
+Price: ${q['price']:.2f} ({'+' if q['change_pct']>=0 else ''}{q['change_pct']:.2f}%)
+Sector: {sector}, Market Cap: {mktcap}, PE: {pe}
+52W High: {h52}, 52W Low: {l52}
+Write 3-4 sentences: (1) current momentum, (2) key risk/opportunity, (3) what Korean investors should watch. Max 280 chars. Use plain text, no HTML."""
+        analysis = claude_call(prompt, max_tokens=300)
+    except Exception:
+        pass
+
+    result = {
+        "ticker": ticker,
+        "name": name,
+        "price": q["price"],
+        "change_pct": q["change_pct"],
+        "sector": sector,
+        "pe_ratio": round(pe, 1) if pe else None,
+        "market_cap": mktcap,
+        "week52_high": round(h52, 2) if h52 else None,
+        "week52_low": round(l52, 2) if l52 else None,
+        "volume": volume,
+        "avg_volume": avg_vol,
+        "analysis": analysis,
+    }
+    analysis_cache.set(cache_key, result)
+    return result
+
+
 @app.get("/market/live")
 def market_live():
     """실시간 시장 데이터 (지수·환율·공포탐욕·빅테크) -- 프론트 위젯용"""
