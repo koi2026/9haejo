@@ -384,6 +384,49 @@ function EconomicCalendar() {
   );
 }
 
+function EarningsCalendar() {
+  const [events, setEvents] = useState<{ ticker: string; name: string; date: string; days_left: number; is_past: boolean }[]>([]);
+  useEffect(() => {
+    fetch(`${API}/calendar/earnings`)
+      .then(r => r.json())
+      .then(d => { if (d.events?.length) setEvents(d.events); })
+      .catch(() => {});
+  }, []);
+  if (!events.length) return null;
+  const upcoming = events.filter(e => !e.is_past).slice(0, 8);
+  if (!upcoming.length) return null;
+  return (
+    <section style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "32px 24px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 11, color: "#f59e0b", fontFamily: "monospace", letterSpacing: 3 }}>EARNINGS CALENDAR</span>
+          <span style={{ fontSize: 11, color: C.muted }}>실적 발표 일정</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
+          {upcoming.map(ev => {
+            const isImminent = ev.days_left <= 3;
+            const color = isImminent ? "#f59e0b" : C.muted;
+            return (
+              <Link key={ev.ticker + ev.date} href={`/stock/${ev.ticker}`} style={{ textDecoration: "none" }}>
+                <div style={{ padding: "12px 16px", borderRadius: 12, background: C.card, border: `1px solid ${isImminent ? "#f59e0b40" : C.border}`, cursor: "pointer", transition: "border-color 0.2s" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 14, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>{ev.ticker}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color, background: `${color}18`, padding: "2px 8px", borderRadius: 6 }}>
+                      {ev.days_left === 0 ? "오늘!" : `D-${ev.days_left}`}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{ev.name}</div>
+                  <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>{ev.date}</div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const POPULAR_TICKERS = ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN", "META", "GOOGL", "AVGO", "BTC-USD", "ETH-USD"];
 
 const AUTOCOMPLETE_LIST: { ticker: string; name: string; sector: string }[] = [
@@ -1400,6 +1443,7 @@ export default function Home() {
       )}
 
       {/* ECONOMIC CALENDAR */}
+      <EarningsCalendar />
       <EconomicCalendar />
 
       {/* STOCK SEARCH WIDGET */}
