@@ -1002,6 +1002,48 @@ def compare_stocks_api(ticker_a: str, ticker_b: str):
     return {"ticker_a": a, "ticker_b": b, "verdict": verdict}
 
 
+@app.get("/market/insight")
+def market_insight():
+    """오늘의 AI 투자 인사이트 (매 30분 갱신)"""
+    from cache import news_cache
+    from collector import yf_quote, collect_fear_greed
+    from stock_analyzer import claude_call
+    from datetime import date
+
+    cached = news_cache.get("market_insight")
+    if cached:
+        return cached
+
+    try:
+        sp = yf_quote("^GSPC") or {}
+        nq = yf_quote("^IXIC") or {}
+        vix = yf_quote("^VIX") or {}
+        fg = collect_fear_greed()
+        today = date.today().strftime("%Y년 %m월 %d일")
+
+        prompt = f"""오늘({today}) 미국 증시 상황:
+S&P500: {sp.get('change_pct', 0):+.2f}%, NASDAQ: {nq.get('change_pct', 0):+.2f}%, VIX: {vix.get('price', 0):.1f}, 공포탐욕: {fg.get('score', 50)}
+
+한국 개인 투자자를 위한 오늘의 투자 인사이트를 2-3문장으로 작성해주세요.
+- 시장 분위기를 한 단어로 시작 (예: 🔥 과열, 📈 상승, 🟡 혼조, 📉 조정, 🔴 위험)
+- 지금 주목해야 할 핵심 포인트 1가지
+- 오늘 투자자가 취해야 할 액션 힌트 1가지
+- 마케팅 관점에서 매력적이고 명확하게, 100자 이내"""
+
+        insight = claude_call("claude-haiku-4-5", prompt, max_tokens=200).strip()
+        result = {
+            "insight": insight,
+            "date": today,
+            "sp500_pct": sp.get("change_pct", 0),
+            "vix": vix.get("price", 0),
+            "fg_score": fg.get("score", 50),
+        }
+        news_cache.set("market_insight", result, ttl=1800)
+        return result
+    except Exception as e:
+        return {"insight": "시장 인사이트를 불러오는 중입니다.", "error": str(e)}
+
+
 @app.get("/market/trending-searches")
 def trending_searches():
     """가장 많이 검색된 종목 TOP5"""
