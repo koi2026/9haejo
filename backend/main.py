@@ -649,4 +649,14 @@ def market_live():
         "META": yf_quote("META"),
     }
     fear_greed = collect_fear_greed()
-    return {"indices": indices, "fx": fx, "fear_greed": fear_greed, "big_stocks": big_stocks}
+    sectors = {
+        "기술(XLK)": yf_quote("XLK"),
+        "금융(XLF)": yf_quote("XLF"),
+        "헬스케어(XLV)": yf_quote("XLV"),
+        "에너지(XLE)": yf_quote("XLE"),
+        "소비재(XLY)": yf_quote("XLY"),
+        "반도체(SOXX)": yf_quote("SOXX"),
+        "통신(XLC)": yf_quote("XLC"),
+        "산업(XLI)": yf_quote("XLI"),
+    }
+    return {"indices": indices, "fx": fx, "fear_greed": fear_greed, "big_stocks": big_stocks, "sectors": sectors}

@@ -602,6 +602,7 @@ export default function Home() {
     fx: Record<string, { price: number; change_pct: number }>;
     fear_greed: { score: number; label_kr: string };
     big_stocks?: Record<string, { price: number; change_pct: number }>;
+    sectors?: Record<string, { price: number; change_pct: number } | null>;
   } | null>(null);
   const marketRef = useRef<NodeJS.Timeout | null>(null);
   const animatedCount = useCountUp(subCount);
@@ -900,6 +901,44 @@ export default function Home() {
                 <FearGauge score={marketData.fear_greed.score} label={marketData.fear_greed.label_kr} />
                 <p style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>CNN Fear & Greed Index</p>
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* SECTOR HEATMAP */}
+      {marketData?.sectors && Object.values(marketData.sectors).some(v => v !== null) && (
+        <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "24px 24px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <span style={{ fontSize: 11, color: "#a78bfa", fontFamily: "monospace", letterSpacing: 3 }}>SECTOR HEATMAP</span>
+              <span style={{ fontSize: 11, color: C.muted }}>섹터별 등락률</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
+              {Object.entries(marketData.sectors).map(([name, d]) => {
+                if (!d) return null;
+                const pct = d.change_pct;
+                const intensity = Math.min(Math.abs(pct) / 3, 1);
+                const bg = pct >= 0
+                  ? `rgba(0, 217, 126, ${0.08 + intensity * 0.28})`
+                  : `rgba(255, 68, 102, ${0.08 + intensity * 0.28})`;
+                const border = pct >= 0
+                  ? `rgba(0, 217, 126, ${0.2 + intensity * 0.4})`
+                  : `rgba(255, 68, 102, ${0.2 + intensity * 0.4})`;
+                const color = pct >= 0 ? C.green : C.red;
+                const shortName = name.split("(")[0].trim();
+                return (
+                  <div key={name} style={{
+                    padding: "12px 8px", borderRadius: 10, background: bg,
+                    border: `1px solid ${border}`, textAlign: "center",
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 4 }}>{shortName}</div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color, fontFamily: "monospace" }}>
+                      {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
