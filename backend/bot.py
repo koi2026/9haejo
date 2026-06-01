@@ -2048,44 +2048,64 @@ Write 3 sentences in Korean: (1) key difference, (2) who should buy which, (3) o
                 except Exception as e:
                     send(chat_id, f"오류: {e}")
             elif mode in ["배당", "dividend"]:
-                send(chat_id, "💰 배당주 분석 중...")
+                send(chat_id, "💰 <b>고배당주 스캐닝 중...</b>\n배당수익률 + 지속성 분석 (10~15초)")
                 try:
                     from stock_analyzer import analyze_dividend_stocks
-                    send(chat_id, analyze_dividend_stocks())
+                    result = analyze_dividend_stocks()
+                    markup_scr = {"inline_keyboard": [[
+                        {"text": "🚀 모멘텀 스크리너", "callback_data": "/스크리너 모멘텀"},
+                        {"text": "📦 ETF 비교", "callback_data": "/스크리너 ETF"},
+                    ]]}
+                    send(chat_id, result, reply_markup=markup_scr)
                 except Exception as e:
                     send(chat_id, f"오류: {e}")
             elif mode in ["52주", "52week", "고저가"]:
-                send(chat_id, "📊 52주 고저가 스캔 중...")
+                send(chat_id, "📊 <b>52주 신고가/신저가 스캐닝 중...</b>\n돌파 기회 탐색 중 (10~15초)")
                 try:
                     from stock_analyzer import scan_52week
-                    send(chat_id, scan_52week())
+                    result = scan_52week()
+                    markup_scr = {"inline_keyboard": [[
+                        {"text": "🚀 모멘텀 스크리너", "callback_data": "/스크리너 모멘텀"},
+                        {"text": "💰 배당주 스크리너", "callback_data": "/스크리너 배당"},
+                    ]]}
+                    send(chat_id, result, reply_markup=markup_scr)
                 except Exception as e:
                     send(chat_id, f"오류: {e}")
             elif mode in ["etf", "ETF"]:
-                send(chat_id, "📦 ETF 분석 중...")
+                send(chat_id, "📦 <b>ETF 성과 분석 중...</b>\n섹터 로테이션 파악 중 (10~15초)")
                 try:
                     from stock_analyzer import analyze_etfs
-                    send(chat_id, analyze_etfs())
+                    result = analyze_etfs()
+                    markup_scr = {"inline_keyboard": [[
+                        {"text": "🚀 모멘텀 스크리너", "callback_data": "/스크리너 모멘텀"},
+                        {"text": "📊 52주 고저가", "callback_data": "/스크리너 52주"},
+                    ]]}
+                    send(chat_id, result, reply_markup=markup_scr)
                 except Exception as e:
                     send(chat_id, f"오류: {e}")
             else:
                 # Show menu with inline buttons
                 menu = {
                     "inline_keyboard": [[
-                        {"text": "🚀 모멘텀", "callback_data": "/스크리너 모멘텀"},
-                        {"text": "💰 배당주", "callback_data": "/스크리너 배당"},
+                        {"text": "🚀 모멘텀 강세", "callback_data": "/스크리너 모멘텀"},
+                        {"text": "💰 고배당주", "callback_data": "/스크리너 배당"},
                     ], [
-                        {"text": "📊 52주 고저가", "callback_data": "/스크리너 52주"},
-                        {"text": "📦 ETF 분석", "callback_data": "/스크리너 ETF"},
+                        {"text": "📊 52주 신고가", "callback_data": "/스크리너 52주"},
+                        {"text": "📦 ETF 성과", "callback_data": "/스크리너 ETF"},
                     ]]
                 }
                 send(chat_id, (
-                    "<b>🔍 통합 스크리너</b>\n\n"
-                    "원하는 스크리너를 선택하세요:\n\n"
-                    "🚀 <b>모멘텀</b> — RSI+MA 기반 강세 종목\n"
-                    "💰 <b>배당</b> — 고배당 TOP10 종목\n"
-                    "📊 <b>52주 고저가</b> — 신고가/신저가 근접 종목\n"
-                    "📦 <b>ETF</b> — 주요 ETF 성과 분석"
+                    "🔍 <b>AI 종목 스크리너</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━\n\n"
+                    "어떤 종목을 찾고 계신가요?\n\n"
+                    "🚀 <b>모멘텀</b> — RSI+MA 기반 강세 종목 TOP10\n"
+                    "  <i>지금 오르는 종목을 선점하세요</i>\n\n"
+                    "💰 <b>고배당</b> — 배당수익률 TOP10 종목\n"
+                    "  <i>안정적인 현금흐름 종목</i>\n\n"
+                    "📊 <b>52주 신고가</b> — 신고가 근접 + 신저가 접근\n"
+                    "  <i>돌파/반등 기회 탐색</i>\n\n"
+                    "📦 <b>ETF</b> — 섹터별 ETF 성과 비교\n"
+                    "  <i>섹터 로테이션 전략에 활용</i>"
                 ), reply_markup=menu)
 
         elif cmd in ["/실시간", "/live", "/추적"]:
