@@ -660,3 +660,10 @@ def market_live():
         "산업(XLI)": yf_quote("XLI"),
     }
     return {"indices": indices, "fx": fx, "fear_greed": fear_greed, "big_stocks": big_stocks, "sectors": sectors}
+
+
+@app.get("/market/trending-searches")
+def trending_searches():
+    """가장 많이 검색된 종목 TOP5"""
+    from search_counter import get_top
+    return {"tickers": get_top(5)}
