@@ -428,6 +428,28 @@ def get_briefing_by_date(date: str):
     return b
 
 
+@app.get("/summary/search")
+def search_briefing_history(q: str = "", limit: int = 5):
+    """브리핑 히스토리 키워드 검색"""
+    from briefing_history import get_all_dates, get_briefing
+    if not q:
+        return {"error": "검색어를 입력해주세요. (?q=NVDA)"}
+    q_lower = q.lower()
+    dates = get_all_dates()
+    results = []
+    for date in dates:
+        briefing = get_briefing(date)
+        if not briefing:
+            continue
+        tweets = briefing.get("tweets", [])
+        matched = [t for t in tweets if q_lower in t.lower()]
+        if matched:
+            results.append({"date": date, "matches": len(matched), "preview": matched[0][:200]})
+        if len(results) >= limit:
+            break
+    return {"query": q, "results": results, "total": len(results)}
+
+
 @app.get("/summary/preview")
 def preview_summary():
     data = collect_all()

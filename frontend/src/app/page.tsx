@@ -597,6 +597,79 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
   );
 }
 
+function PWAInstallBanner() {
+  const [show, setShow] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // Check if already installed (standalone mode)
+    if (window.matchMedia("(display-mode: standalone)").matches) return;
+    // Check if dismissed
+    if (localStorage.getItem("pwa-banner-dismissed")) return;
+
+    const ios = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+    setIsIOS(ios);
+
+    if (!ios) {
+      const handler = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        setShow(true);
+      };
+      window.addEventListener("beforeinstallprompt", handler as EventListener);
+      return () => window.removeEventListener("beforeinstallprompt", handler as EventListener);
+    } else {
+      // Show iOS instructions after 3 seconds
+      const t = setTimeout(() => setShow(true), 3000);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  const dismiss = () => {
+    setShow(false);
+    localStorage.setItem("pwa-banner-dismissed", "1");
+  };
+
+  const install = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") dismiss();
+      setDeferredPrompt(null);
+    }
+  };
+
+  if (!show) return null;
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 80, left: 16, right: 16, zIndex: 200,
+      background: C.card, border: `1px solid ${C.green}40`,
+      borderRadius: 16, padding: "16px 20px",
+      boxShadow: `0 8px 32px rgba(0,0,0,0.4), 0 0 20px ${C.green}15`,
+      display: "flex", alignItems: "center", gap: 14,
+    }}>
+      <div style={{ width: 40, height: 40, borderRadius: 10, background: C.grad, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 20, color: "#07070f", flexShrink: 0 }}>9</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>구해조 앱으로 설치</div>
+        {isIOS ? (
+          <div style={{ fontSize: 11, color: C.muted }}>Safari에서 공유 버튼 → 홈 화면에 추가</div>
+        ) : (
+          <div style={{ fontSize: 11, color: C.muted }}>홈 화면에 추가하고 앱처럼 사용하세요</div>
+        )}
+      </div>
+      {!isIOS && (
+        <button onClick={install} style={{
+          padding: "8px 16px", borderRadius: 8, background: C.grad, color: "#07070f",
+          fontWeight: 700, fontSize: 12, border: "none", cursor: "pointer", flexShrink: 0,
+        }}>설치</button>
+      )}
+      <button onClick={dismiss} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer", padding: "4px", flexShrink: 0 }}>✕</button>
+    </div>
+  );
+}
+
 type SentInfo = { emoji: string; label: string; color: string; group: string };
 function NewsSection({ news, getSentInfo }: { news: { title: string; source: string; sentiment: string; url: string }[]; getSentInfo: (s: string) => SentInfo }) {
   const [filter, setFilter] = useState<"all" | "positive" | "negative" | "neutral">("all");
@@ -1477,6 +1550,7 @@ export default function Home() {
         .ticker-item:hover { background: rgba(255,255,255,0.05) !important; }
         @media (max-width: 768px) { body { padding-bottom: 68px; } }
       `}</style>
+      <PWAInstallBanner />
     </div>
   );
 }
