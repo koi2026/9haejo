@@ -225,33 +225,60 @@ function FearGauge({ score, label }: { score: number; label: string }) {
   );
 }
 
-function FxWidget({ fx }: { fx: Record<string, { price: number; change_pct: number }> }) {
-  const pairs = ["USD/KRW", "USD/JPY", "EUR/USD"];
-  const icons: Record<string, string> = { "USD/KRW": "🇰🇷", "USD/JPY": "🇯🇵", "EUR/USD": "🇪🇺" };
+function FxWidget({ fx, lastUpdated }: { fx: Record<string, { price: number; change_pct: number }>; lastUpdated?: number }) {
+  const pairs = ["USD/KRW", "USD/JPY", "EUR/USD", "USD/CNH"];
+  const icons: Record<string, string> = { "USD/KRW": "🇰🇷", "USD/JPY": "🇯🇵", "EUR/USD": "🇪🇺", "USD/CNH": "🇨🇳" };
+  const names: Record<string, string> = { "USD/KRW": "달러/원", "USD/JPY": "달러/엔", "EUR/USD": "유로/달러", "USD/CNH": "달러/위안" };
   const format: Record<string, (v: number) => string> = {
-    "USD/KRW": v => v.toLocaleString("ko-KR", { maximumFractionDigits: 0 }) + "원",
-    "USD/JPY": v => v.toFixed(2) + "¥",
-    "EUR/USD": v => v.toFixed(4),
+    "USD/KRW": v => "₩" + v.toLocaleString("ko-KR", { maximumFractionDigits: 0 }),
+    "USD/JPY": v => "¥" + v.toFixed(2),
+    "EUR/USD": v => "$" + v.toFixed(4),
+    "USD/CNH": v => "¥" + v.toFixed(4),
   };
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    setPulse(true);
+    const t = setTimeout(() => setPulse(false), 600);
+    return () => clearTimeout(t);
+  }, [lastUpdated]);
+  const secondsAgo = lastUpdated ? Math.round((Date.now() - lastUpdated) / 1000) : null;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {pairs.map(pair => {
-        const d = fx[pair];
-        if (!d) return null;
-        const up = d.change_pct >= 0;
-        return (
-          <div key={pair} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "#08081a", border: `1px solid ${up ? "#00d97e18" : "#ff446618"}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 18 }}>{icons[pair]}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, fontFamily: "monospace" }}>{pair}</span>
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, opacity: pulse ? 1 : 0.4, transition: "opacity 0.3s", boxShadow: pulse ? `0 0 6px ${C.green}` : "none" }} />
+          <span style={{ fontSize: 10, color: C.green, fontFamily: "monospace", letterSpacing: 1 }}>LIVE</span>
+        </div>
+        {secondsAgo !== null && <span style={{ fontSize: 10, color: C.muted, fontFamily: "monospace" }}>{secondsAgo < 60 ? `${secondsAgo}s ago` : `${Math.round(secondsAgo/60)}m ago`}</span>}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {pairs.map(pair => {
+          const d = fx[pair];
+          if (!d) return null;
+          const up = d.change_pct >= 0;
+          const color = up ? C.green : C.red;
+          const barWidth = Math.min(Math.abs(d.change_pct) / 2 * 100, 100);
+          return (
+            <div key={pair} style={{ padding: "10px 14px", borderRadius: 10, background: "#08081a", border: `1px solid ${up ? "#00d97e18" : "#ff446618"}`, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", left: 0, bottom: 0, height: 2, width: `${barWidth}%`, background: color, opacity: 0.5 }} />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>{icons[pair]}</span>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, fontFamily: "monospace" }}>{pair}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{names[pair]}</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>{format[pair](d.price)}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color }}>{up ? "+" : ""}{d.change_pct.toFixed(2)}%</div>
+                </div>
+              </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{format[pair](d.price)}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{d.change_pct.toFixed(2)}%</div>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -799,6 +826,7 @@ export default function Home() {
     big_stocks?: Record<string, { price: number; change_pct: number }>;
     sectors?: Record<string, { price: number; change_pct: number } | null>;
   } | null>(null);
+  const [marketLastUpdated, setMarketLastUpdated] = useState<number | undefined>(undefined);
   const marketRef = useRef<NodeJS.Timeout | null>(null);
   const animatedCount = useCountUp(subCount);
   const marketSession = useMarketSession();
@@ -839,7 +867,7 @@ export default function Home() {
     const loadMarket = () => {
       fetch(`${API}/market/live`)
         .then(r => r.json())
-        .then(d => setMarketData(d))
+        .then(d => { setMarketData(d); setMarketLastUpdated(Date.now()); })
         .catch(() => {});
     };
     loadMarket();
@@ -1075,7 +1103,7 @@ export default function Home() {
               {/* 환율 */}
               <div style={{ padding: "20px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}` }}>
                 <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 14 }}>FX RATES</p>
-                <FxWidget fx={marketData.fx} />
+                <FxWidget fx={marketData.fx} lastUpdated={marketLastUpdated} />
                 <div style={{ display: "none", flexDirection: "column", gap: 8 }}>
                   {Object.entries(marketData.fx).map(([name, d]) => (
                     <IndexTicker key={name} name={name} data={d} />
