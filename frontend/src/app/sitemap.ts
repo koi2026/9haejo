@@ -11,6 +11,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/briefings`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE}/news`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${BASE}/compare`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE}/watchlist`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
+    { url: `${BASE}/alerts`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
   ];
 
   // Popular stock pages
