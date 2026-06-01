@@ -1002,6 +1002,35 @@ def compare_stocks_api(ticker_a: str, ticker_b: str):
     return {"ticker_a": a, "ticker_b": b, "verdict": verdict}
 
 
+@app.get("/watchlist/{chat_id}")
+def get_watchlist_web(chat_id: str):
+    """웹용 관심종목 조회 (텔레그램 chat_id 기반, 실시간 시세 포함)"""
+    from collector import yf_quote
+    from concurrent.futures import ThreadPoolExecutor
+    wl_path = DATA_DIR / "watchlists.json"
+    try:
+        with open(wl_path) as f:
+            import json
+            wl_db = json.load(f)
+    except Exception:
+        wl_db = {}
+    tickers = wl_db.get(str(chat_id), [])
+    if not tickers:
+        return {"chat_id": chat_id, "tickers": [], "found": False}
+
+    def _q(sym):
+        try:
+            q = yf_quote(sym) or {}
+            return {"ticker": sym, "price": q.get("price", 0), "change_pct": q.get("change_pct", 0)}
+        except Exception:
+            return {"ticker": sym, "price": 0, "change_pct": 0}
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        results = list(ex.map(_q, tickers))
+
+    return {"chat_id": chat_id, "tickers": results, "found": True, "count": len(results)}
+
+
 @app.get("/market/insight")
 def market_insight():
     """오늘의 AI 투자 인사이트 (매 30분 갱신)"""
