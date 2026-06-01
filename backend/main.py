@@ -538,6 +538,26 @@ def news_latest():
     return {"news": news}
 
 
+@app.get("/news/ai-summary")
+def news_ai_summary():
+    """뉴스 AI 한국어 요약 (캐시 10분)"""
+    from cache import news_cache
+    cache_key = "news_ai_summary"
+    cached = news_cache.get(cache_key)
+    if cached:
+        return {"summary": cached}
+    try:
+        from stock_analyzer import summarize_news
+        result = summarize_news()
+        # strip HTML for the web page
+        import re
+        plain = re.sub(r"<[^>]+>", "", result).strip()
+        news_cache.set(cache_key, plain)
+        return {"summary": plain}
+    except Exception as e:
+        return {"summary": "", "error": str(e)}
+
+
 @app.get("/stock/history/{ticker}")
 def stock_history(ticker: str, days: int = 7):
     """종목 최근 N일 종가 히스토리 (SVG 스파크라인용, 5분 캐시)"""

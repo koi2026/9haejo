@@ -962,6 +962,9 @@ export default function Home() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Link href="/news" style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
+              📰 뉴스
+            </Link>
             <Link href="/compare" style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
               ⚖️ 비교
             </Link>
