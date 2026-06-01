@@ -885,6 +885,7 @@ export default function Home() {
   const [sparklines, setSparklines] = useState<{ [ticker: string]: number[] }>({});
   const [trending, setTrending] = useState<{ ticker: string; price: number; change_pct: number; mentions: number; sentiment_score: number }[]>([]);
   const [movers, setMovers] = useState<{ gainers: { ticker: string; price: number; change_pct: number }[]; losers: { ticker: string; price: number; change_pct: number }[] } | null>(null);
+  const [insight, setInsight] = useState<{ insight: string; date: string } | null>(null);
   const [marketData, setMarketData] = useState<{
     indices: Record<string, { price: number; change_pct: number }>;
     fx: Record<string, { price: number; change_pct: number }>;
@@ -955,6 +956,12 @@ export default function Home() {
     fetch(`${API}/market/trending`)
       .then(r => r.json())
       .then(d => { if (d.tickers?.length) setTrending(d.tickers); })
+      .catch(() => {});
+
+    // 오늘의 AI 인사이트
+    fetch(`${API}/market/insight`)
+      .then(r => r.json())
+      .then(d => { if (d.insight) setInsight(d); })
       .catch(() => {});
 
     // 당일 상승/하락 상위 종목
@@ -1212,6 +1219,26 @@ export default function Home() {
                 <p style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>CNN Fear & Greed Index</p>
               </div>
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* AI DAILY INSIGHT */}
+      {insight && (
+        <section style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #111120 100%)", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "20px 24px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: C.grad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🤖</div>
+              <div>
+                <div style={{ fontSize: 9, color: C.green, fontFamily: "monospace", letterSpacing: 2 }}>AI INSIGHT</div>
+                <div style={{ fontSize: 9, color: C.muted }}>{insight.date}</div>
+              </div>
+            </div>
+            <p style={{ fontSize: 14, color: C.text, lineHeight: 1.6, margin: 0, flex: 1 }}>{insight.insight}</p>
+            <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+              style={{ padding: "8px 16px", borderRadius: 8, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 12, textDecoration: "none", flexShrink: 0 }}>
+              더 보기
+            </a>
           </div>
         </section>
       )}
