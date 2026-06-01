@@ -1060,6 +1060,50 @@ def compare_stocks_api(ticker_a: str, ticker_b: str):
     return {"ticker_a": a, "ticker_b": b, "verdict": verdict}
 
 
+@app.get("/alerts/{chat_id}")
+def get_alerts_web(chat_id: str):
+    """웹용 가격 알림 조회 (텔레그램 chat_id 기반, 실시간 현재가 포함)"""
+    from alerts import _load as _load_alerts
+    from collector import yf_quote
+    from concurrent.futures import ThreadPoolExecutor
+
+    all_alerts = _load_alerts()
+    user_alerts = all_alerts.get(str(chat_id), [])
+    if not user_alerts:
+        return {"chat_id": chat_id, "alerts": [], "found": False}
+
+    tickers = list({a["ticker"] for a in user_alerts})
+    def _q(sym):
+        try:
+            q = yf_quote(sym) or {}
+            return sym, q.get("price", 0)
+        except Exception:
+            return sym, 0
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        prices = dict(ex.map(_q, tickers))
+
+    result_alerts = []
+    for a in user_alerts:
+        if not a.get("active", True):
+            continue
+        ticker = a["ticker"]
+        current = prices.get(ticker, 0)
+        target = a["target"]
+        direction = a.get("direction", "above")
+        pct_away = ((target - current) / current * 100) if current else None
+        result_alerts.append({
+            "ticker": ticker,
+            "target": target,
+            "direction": direction,
+            "current_price": current,
+            "pct_away": round(pct_away, 2) if pct_away is not None else None,
+            "triggered": (current >= target if direction == "above" else current <= target) if current else False,
+        })
+
+    return {"chat_id": chat_id, "alerts": result_alerts, "found": True, "count": len(result_alerts)}
+
+
 @app.get("/watchlist/{chat_id}")
 def get_watchlist_web(chat_id: str):
     """웹용 관심종목 조회 (텔레그램 chat_id 기반, 실시간 시세 포함)"""
