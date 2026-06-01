@@ -597,6 +597,65 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
   );
 }
 
+type SentInfo = { emoji: string; label: string; color: string; group: string };
+function NewsSection({ news, getSentInfo }: { news: { title: string; source: string; sentiment: string; url: string }[]; getSentInfo: (s: string) => SentInfo }) {
+  const [filter, setFilter] = useState<"all" | "positive" | "negative" | "neutral">("all");
+  const filtered = filter === "all" ? news : news.filter(n => getSentInfo(n.sentiment).group === filter);
+  const counts = {
+    positive: news.filter(n => getSentInfo(n.sentiment).group === "positive").length,
+    negative: news.filter(n => getSentInfo(n.sentiment).group === "negative").length,
+    neutral: news.filter(n => getSentInfo(n.sentiment).group === "neutral").length,
+  };
+  const filters: { key: "all" | "positive" | "negative" | "neutral"; label: string; color: string; count?: number }[] = [
+    { key: "all", label: "전체", color: C.muted, count: news.length },
+    { key: "positive", label: "📈 긍정", color: C.green, count: counts.positive },
+    { key: "negative", label: "📉 부정", color: C.red, count: counts.negative },
+    { key: "neutral", label: "😐 중립", color: C.muted, count: counts.neutral },
+  ];
+  return (
+    <section id="news" style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>WALL STREET NEWS</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+          <div>
+            <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 4, color: C.text }}>오늘의 월가 뉴스</h2>
+            <p style={{ color: C.muted, fontSize: 14 }}>Alpha Vantage 뉴스 감성 분석</p>
+          </div>
+          {/* Filter tabs */}
+          <div style={{ display: "flex", gap: 6 }}>
+            {filters.map(f => (
+              <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                background: filter === f.key ? `${f.color}20` : "transparent",
+                color: filter === f.key ? f.color : C.muted,
+                border: `1px solid ${filter === f.key ? f.color : C.border}`,
+                transition: "all 0.15s",
+              }}>
+                {f.label} {f.count !== undefined && <span style={{ fontSize: 10 }}>({f.count})</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtered.length === 0 ? (
+            <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>해당 카테고리 뉴스가 없습니다.</div>
+          ) : filtered.map((n, i) => {
+            const si = getSentInfo(n.sentiment);
+            return (
+              <a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, textDecoration: "none", transition: "border-color 0.15s" }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>{si.emoji}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 4, background: `${si.color}20`, color: si.color, whiteSpace: "nowrap", flexShrink: 0 }}>{si.label}</span>
+                <span style={{ fontSize: 13, color: C.text, flex: 1, fontWeight: 500, lineHeight: 1.4 }}>{n.title}</span>
+                <span style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap", flexShrink: 0 }}>{n.source}</span>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const [chatId, setChatId] = useState("");
   const [subState, setSubState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -1109,28 +1168,20 @@ export default function Home() {
       <StockSearchWidget isMobile={isMobile} />
 
       {/* NEWS SECTION */}
-      {news.length > 0 && (
-        <section id="news" style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
-          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-            <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>WALL STREET NEWS</p>
-            <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, color: C.text }}>오늘의 월가 뉴스</h2>
-            <p style={{ color: C.muted, marginBottom: 28, fontSize: 14 }}>Alpha Vantage 뉴스 감성 분석</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {news.map((n, i) => {
-                const sentColor = n.sentiment === "Bullish" || n.sentiment === "Somewhat-Bullish" ? C.green : n.sentiment === "Bearish" || n.sentiment === "Somewhat-Bearish" ? C.red : C.muted;
-                const sentLabel = n.sentiment === "Bullish" ? "긍정" : n.sentiment === "Somewhat-Bullish" ? "다소긍정" : n.sentiment === "Bearish" ? "부정" : n.sentiment === "Somewhat-Bearish" ? "다소부정" : "중립";
-                return (
-                  <a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, textDecoration: "none" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 4, background: `${sentColor}20`, color: sentColor, whiteSpace: "nowrap" }}>{sentLabel}</span>
-                    <span style={{ fontSize: 13, color: C.text, flex: 1, fontWeight: 500 }}>{n.title}</span>
-                    <span style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>{n.source}</span>
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
+      {news.length > 0 && (() => {
+        const getSentInfo = (sentiment: string) => {
+          if (sentiment === "Bullish") return { emoji: "📈", label: "긍정", color: C.green, group: "positive" };
+          if (sentiment === "Somewhat-Bullish") return { emoji: "📊", label: "다소긍정", color: C.green, group: "positive" };
+          if (sentiment === "Bearish") return { emoji: "📉", label: "부정", color: C.red, group: "negative" };
+          if (sentiment === "Somewhat-Bearish") return { emoji: "⚠️", label: "다소부정", color: C.red, group: "negative" };
+          return { emoji: "😐", label: "중립", color: C.muted, group: "neutral" };
+        };
+        return (
+          <NewsSection news={news} getSentInfo={getSentInfo} />
+        );
+      })()}
+
+      {/* FEATURES */}
 
       {/* FEATURES */}
       <section style={{ padding: "60px 24px" }}>
