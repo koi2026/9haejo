@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://9haejo.vercel.app/sitemap.xml
