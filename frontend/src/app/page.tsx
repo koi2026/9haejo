@@ -665,8 +665,8 @@ export default function Home() {
       .then(d => { if (d.tickers?.length) setTrending(d.tickers); })
       .catch(() => {});
 
-    // 지수 스파크라인 (7일 데이터)
-    const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "NVDA": "NVDA", "TSLA": "TSLA" };
+    // 지수 + 빅테크 스파크라인 (7일 데이터)
+    const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "NVDA": "NVDA", "TSLA": "TSLA", "AAPL": "AAPL", "MSFT": "MSFT", "META": "META", "AMZN": "AMZN" };
     Object.entries(sparkTickers).forEach(([name, sym]) => {
       fetch(`${API}/stock/history/${encodeURIComponent(sym)}?days=7`)
         .then(r => r.json())
@@ -976,18 +976,24 @@ export default function Home() {
                 const up = liveData ? liveData.change_pct >= 0 : null;
                 return (
                   <div key={ticker} style={{ padding: "16px", borderRadius: 14, background: C.card, border: `1px solid ${up === null ? C.border : up ? `${C.green}30` : `${C.red}20`}`, position: "relative", overflow: "hidden" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                      <div style={{ fontSize: 22 }}>{emoji}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                      <div>
+                        <div style={{ fontWeight: 800, color: C.text, fontSize: 13 }}>{ticker}</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>{desc}</div>
+                      </div>
                       {liveData && (
                         <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 14, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>${liveData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                          <div style={{ fontSize: 13, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>${liveData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "+" : ""}{liveData.change_pct.toFixed(2)}%</div>
                         </div>
                       )}
                     </div>
-                    <div style={{ fontWeight: 800, color: C.text, fontSize: 13 }}>{ticker}</div>
-                    <div style={{ fontSize: 11, color: C.muted }}>{desc}</div>
-                    <div style={{ fontFamily: "monospace", fontSize: 10, color: `${C.green}80`, marginTop: 4 }}>@goohaejo_bot &gt; {ticker}</div>
+                    {sparklines[ticker] && (
+                      <div style={{ marginTop: 8, marginBottom: 4 }}>
+                        <MiniSparkline prices={sparklines[ticker]} color={up ? C.green : C.red} />
+                      </div>
+                    )}
+                    <div style={{ fontFamily: "monospace", fontSize: 9, color: `${C.green}60`, marginTop: 4 }}>@goohaejo_bot &gt; {ticker}</div>
                   </div>
                 );
               })}
