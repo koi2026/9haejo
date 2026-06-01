@@ -41,6 +41,33 @@ function StatRow({ label, value, highlight }: { label: string; value: string; hi
   );
 }
 
+function Sparkline({ prices, color }: { prices: number[]; color: string }) {
+  if (!prices || prices.length < 2) return null;
+  const W = 280, H = 60, pad = 4;
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const range = max - min || 1;
+  const pts = prices.map((p, i) => {
+    const x = pad + (i / (prices.length - 1)) * (W - pad * 2);
+    const y = H - pad - ((p - min) / range) * (H - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const pathD = `M ${pts.join(" L ")}`;
+  const fillD = `${pathD} L ${(W - pad).toFixed(1)},${(H - pad).toFixed(1)} L ${pad},${(H - pad).toFixed(1)} Z`;
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+      <defs>
+        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={fillD} fill="url(#sparkFill)" />
+      <path d={pathD} stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={parseFloat(pts[pts.length - 1].split(",")[0])} cy={parseFloat(pts[pts.length - 1].split(",")[1])} r="3" fill={color} />
+    </svg>
+  );
+}
+
 export default function StockPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = use(params);
   const upperTicker = ticker.toUpperCase();
@@ -48,6 +75,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [sparkPrices, setSparkPrices] = useState<number[]>([]);
 
   useEffect(() => {
     fetch(`${API}/stock/${upperTicker}`)
@@ -58,6 +86,11 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
       })
       .catch(() => setError("데이터를 불러오지 못했습니다."))
       .finally(() => setLoading(false));
+    // 스파크라인 14일 히스토리
+    fetch(`${API}/stock/history/${upperTicker}?days=14`)
+      .then(r => r.json())
+      .then(d => { if (d.prices?.length) setSparkPrices(d.prices); })
+      .catch(() => {});
   }, [upperTicker]);
 
   const shareUrl = `https://9haejo.vercel.app/stock/${upperTicker}`;
@@ -137,13 +170,19 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                     <span style={{ fontSize: 11, color: C.blue, background: `${C.blue}15`, padding: "3px 10px", borderRadius: 20, fontWeight: 600 }}>{data.sector}</span>
                   )}
                 </div>
-                <div style={{ textAlign: "right" }}>
+                <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                   <div style={{ fontSize: 36, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>
                     ${data.price.toFixed(2)}
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: data.change_pct >= 0 ? C.green : C.red }}>
                     {data.change_pct >= 0 ? "▲+" : "▼"}{data.change_pct.toFixed(2)}%
                   </div>
+                  {sparkPrices.length > 1 && (
+                    <div style={{ marginTop: 4 }}>
+                      <Sparkline prices={sparkPrices} color={data.change_pct >= 0 ? C.green : C.red} />
+                      <div style={{ fontSize: 10, color: C.muted, textAlign: "right", marginTop: 2 }}>14일 차트</div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

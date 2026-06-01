@@ -594,23 +594,28 @@ def handle_update(update: dict):
                 from datetime import datetime, timezone
                 now_kst = datetime.now(timezone.utc).strftime("%H:%M UTC")
 
-                lines = [f"<b>📊 시장 현황</b> <i>({now_kst})</i>\n"]
+                # 시장 전체 분위기 판단
+                sp_q = results.get("S&P500")
+                sp_pct = sp_q["change_pct"] if sp_q else 0
+                market_mood = "🔥 강세" if sp_pct > 1 else "📈 상승" if sp_pct > 0 else "📉 하락" if sp_pct > -1 else "🔴 약세"
+                lines = [
+                    f"<b>📊 시장 현황</b>  <i>{now_kst}</i>\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n"
+                    f"{market_mood}  공포탐욕 {fg_emoji} <b>{fg_score}</b>/100 <i>{fg_label}</i>\n"
+                ]
 
                 # 미국 지수
-                lines.append("<b>🇺🇸 미국</b>")
+                lines.append("<b>🇺🇸 미국 지수</b>")
                 for name, _ in index_syms:
                     lines.append(fmt_idx(name, results.get(name)))
 
-                # FG 인라인
-                lines.append(f"\n  공포탐욕 {fg_emoji} <b>{fg_score}</b>/100 {fg_label}")
-
                 # 한국
-                lines.append("\n<b>🇰🇷 한국</b>")
+                lines.append("\n<b>🇰🇷 한국 지수</b>")
                 for name, _ in kr_syms:
                     lines.append(fmt_idx(name, results.get(name)))
 
                 # 환율
-                lines.append("\n<b>💱 환율</b>")
+                lines.append("\n<b>💱 환율 · 원자재</b>")
                 for name, sym in fx_syms:
                     q = results.get(name)
                     if q and "price" in q:
@@ -634,9 +639,21 @@ def handle_update(update: dict):
                     lines.append(f"{name:<5} {bar} {sign}{pct:.2f}%")
                 lines.append("</code>")
 
+                # 베스트/워스트 섹터 한줄 요약 추가
+                if sector_data:
+                    best_s, best_q = sector_data[0]
+                    worst_s, worst_q = sector_data[-1]
+                    lines.append(
+                        f"\n🏆 <b>{best_s}</b> {'+' if best_q['change_pct']>=0 else ''}{best_q['change_pct']:.2f}% 최강  "
+                        f"💀 <b>{worst_s}</b> {worst_q['change_pct']:.2f}% 최약"
+                    )
+                lines.append("\n<i>종목명 입력 → AI 즉시 분석</i>")
                 markup = {"inline_keyboard": [[
-                    {"text": "📈 종목 분석", "callback_data": "__help_stock"},
+                    {"text": "📈 NVDA 분석", "callback_data": "/NVDA"},
                     {"text": "🤖 AI 브리핑", "callback_data": "/브리핑"},
+                ], [
+                    {"text": "📰 오늘 뉴스", "callback_data": "/뉴스"},
+                    {"text": "🔔 알림 설정", "callback_data": "__help_alert"},
                 ]]}
                 send(chat_id, "\n".join(lines), reply_markup=markup)
             except Exception as e:
