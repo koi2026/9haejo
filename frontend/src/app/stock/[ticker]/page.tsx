@@ -80,6 +80,9 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [sparkPrices, setSparkPrices] = useState<number[]>([]);
   const [peers, setPeers] = useState<PeerStock[]>([]);
   const [peerSector, setPeerSector] = useState("");
+  const [chartDays, setChartDays] = useState(30);
+  const [chartPrices, setChartPrices] = useState<number[]>([]);
+  const [chartDates, setChartDates] = useState<string[]>([]);
 
   useEffect(() => {
     fetch(`${API}/stock/${upperTicker}`)
@@ -90,7 +93,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
       })
       .catch(() => setError("데이터를 불러오지 못했습니다."))
       .finally(() => setLoading(false));
-    // 스파크라인 14일 히스토리
+    // 스파크라인 14일 히스토리 (헤더용)
     fetch(`${API}/stock/history/${upperTicker}?days=14`)
       .then(r => r.json())
       .then(d => { if (d.prices?.length) setSparkPrices(d.prices); })
@@ -101,6 +104,16 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
       .then(d => { if (d.peers?.length) { setPeers(d.peers); setPeerSector(d.sector || ""); } })
       .catch(() => {});
   }, [upperTicker]);
+
+  // 차트 기간 변경 시 재조회
+  useEffect(() => {
+    setChartPrices([]);
+    setChartDates([]);
+    fetch(`${API}/stock/history/${upperTicker}?days=${chartDays}`)
+      .then(r => r.json())
+      .then(d => { if (d.prices?.length) { setChartPrices(d.prices); setChartDates(d.dates || []); } })
+      .catch(() => {});
+  }, [upperTicker, chartDays]);
 
   const shareUrl = `https://9haejo.vercel.app/stock/${upperTicker}`;
   const copyLink = () => {
@@ -217,6 +230,70 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                   />
                 )}
               </div>
+            </div>
+
+            {/* Interactive Chart */}
+            <div style={{ padding: "20px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2 }}>PRICE CHART</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {([["1W", 7], ["1M", 30], ["3M", 90]] as [string, number][]).map(([label, days]) => (
+                    <button key={days} onClick={() => setChartDays(days)}
+                      style={{ padding: "5px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", transition: "all 0.15s",
+                        background: chartDays === days ? (data.change_pct >= 0 ? C.green : C.red) : C.surface,
+                        color: chartDays === days ? "#07070f" : C.muted }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {chartPrices.length < 2 ? (
+                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ fontSize: 13, color: C.muted }}>차트 로딩 중…</div>
+                </div>
+              ) : (() => {
+                const W = 720, H = 120, pad = 8;
+                const min = Math.min(...chartPrices), max = Math.max(...chartPrices);
+                const range = max - min || 1;
+                const color = data.change_pct >= 0 ? C.green : C.red;
+                const pts = chartPrices.map((p, i) => {
+                  const x = pad + (i / (chartPrices.length - 1)) * (W - pad * 2);
+                  const y = H - pad - ((p - min) / range) * (H - pad * 2);
+                  return `${x.toFixed(1)},${y.toFixed(1)}`;
+                });
+                const pathD = `M ${pts.join(" L ")}`;
+                const fillD = `${pathD} L ${(W - pad).toFixed(1)},${(H - pad).toFixed(1)} L ${pad},${(H - pad).toFixed(1)} Z`;
+                const minIdx = chartPrices.indexOf(min);
+                const maxIdx = chartPrices.indexOf(max);
+                const [minX, minY] = pts[minIdx].split(",").map(Number);
+                const [maxX, maxY] = pts[maxIdx].split(",").map(Number);
+                return (
+                  <div>
+                    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible", display: "block" }}>
+                      <defs>
+                        <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                          <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+                        </linearGradient>
+                      </defs>
+                      <path d={fillD} fill="url(#chartFill)" />
+                      <path d={pathD} stroke={color} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      {/* Min marker */}
+                      <circle cx={minX} cy={minY} r="4" fill={C.red} />
+                      <text x={minX} y={minY + 16} textAnchor="middle" fontSize="10" fill={C.red} fontFamily="monospace">${min.toFixed(0)}</text>
+                      {/* Max marker */}
+                      <circle cx={maxX} cy={maxY} r="4" fill={C.green} />
+                      <text x={maxX} y={maxY - 8} textAnchor="middle" fontSize="10" fill={C.green} fontFamily="monospace">${max.toFixed(0)}</text>
+                      {/* Last point */}
+                      <circle cx={parseFloat(pts[pts.length - 1].split(",")[0])} cy={parseFloat(pts[pts.length - 1].split(",")[1])} r="5" fill={color} />
+                    </svg>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                      <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>{chartDates[0] || ""}</span>
+                      <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>{chartDates[chartDates.length - 1] || ""}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* AI Analysis */}
