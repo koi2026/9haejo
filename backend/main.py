@@ -657,6 +657,72 @@ def calendar_upcoming():
     return {"events": events_out, "today": today.isoformat()}
 
 
+_EARNINGS_TICKERS = ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN", "META", "GOOGL", "AVGO", "AMD", "NFLX", "COIN", "PLTR", "CRM", "ORCL", "UBER"]
+
+@app.get("/calendar/earnings")
+def calendar_earnings():
+    """주요 종목 실적 발표 일정 (yfinance, 1시간 캐시)"""
+    from cache import news_cache
+    from datetime import date, timedelta
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor
+
+    cached = news_cache.get("earnings_calendar")
+    if cached:
+        return cached
+
+    today = date.today()
+    results = []
+
+    def _fetch(ticker):
+        try:
+            t = yf.Ticker(ticker)
+            cal = t.calendar
+            if cal is None:
+                return None
+            if isinstance(cal, dict):
+                ed = cal.get("Earnings Date")
+                if ed and hasattr(ed, "__iter__") and not isinstance(ed, str):
+                    ed = list(ed)[0] if ed else None
+            else:
+                # DataFrame style
+                try:
+                    ed = cal.loc["Earnings Date"].iloc[0] if "Earnings Date" in cal.index else None
+                except Exception:
+                    return None
+            if ed is None:
+                return None
+            if hasattr(ed, "date"):
+                ed = ed.date()
+            elif isinstance(ed, str):
+                from datetime import datetime
+                ed = datetime.fromisoformat(ed[:10]).date()
+            days_left = (ed - today).days
+            if days_left < -7 or days_left > 90:
+                return None
+            info = t.info or {}
+            return {
+                "ticker": ticker,
+                "name": info.get("shortName", ticker),
+                "date": ed.isoformat(),
+                "days_left": days_left,
+                "is_past": days_left < 0,
+            }
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        items = list(ex.map(_fetch, _EARNINGS_TICKERS))
+
+    results = sorted(
+        [r for r in items if r is not None],
+        key=lambda x: x["days_left"]
+    )
+    result = {"events": results, "today": today.isoformat()}
+    news_cache.set("earnings_calendar", result, ttl=3600)
+    return result
+
+
 @app.get("/stock/quote/{ticker}")
 def stock_quote(ticker: str):
     """단일 종목 실시간 시세 + 52주 데이터 (프론트 위젯용, 60초 캐시)"""
