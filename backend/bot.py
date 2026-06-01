@@ -227,6 +227,16 @@ def handle_update(update: dict):
                     ))
                 else:
                     send(chat_id, f"{ticker} 알림이 없습니다.")
+            elif cb_data == "__help_position":
+                send(chat_id, (
+                    "<b>포지션 추가 방법</b>\n\n"
+                    "/포지션 add NVDA 10 875.50\n"
+                    "  → NVDA 10주, 매수가 $875.50\n\n"
+                    "/포지션 add TSLA 5\n"
+                    "  → 현재가로 매수가 자동 설정\n\n"
+                    "/포지션 remove NVDA — 삭제\n"
+                    "/포지션 — 전체 수익률 확인"
+                ))
             elif cb_data in ("__news_bullish", "__news_bearish"):
                 sentiment = "Bullish" if cb_data == "__news_bullish" else "Bearish"
                 label = "🟢 호재" if sentiment == "Bullish" else "🔴 악재"
@@ -1512,8 +1522,27 @@ Max 350 chars. Specific and actionable."""
                     total_pct = (total_pnl / total_invested * 100) if total_invested else 0
                     lines.append(f"\n<b>총 투자금액:</b> ${total_invested:,.0f}")
                     lines.append(f"<b>현재 평가금액:</b> ${total_value:,.0f}")
-                    lines.append(f"<b>총 수익:</b> {'+' if total_pnl >= 0 else ''}{total_pnl:,.0f}$ ({total_pct:+.1f}%)")
-                    send(chat_id, "\n".join(lines))
+                    total_arrow = "▲" if total_pnl >= 0 else "▼"
+                    lines.append(f"<b>총 수익:</b> {total_arrow}{abs(total_pct):.1f}% (${total_pnl:+,.0f})")
+                    # S&P500 벤치마크 비교
+                    try:
+                        spy_q = yf_quote("SPY")
+                        if spy_q:
+                            spy_pct = spy_q["change_pct"]
+                            alpha = total_pct - spy_pct
+                            spy_line = f"<b>vs S&P500:</b> {'+' if spy_pct>=0 else ''}{spy_pct:.2f}% | 알파: {'+' if alpha>=0 else ''}{alpha:.2f}%"
+                            if alpha > 0:
+                                spy_line += " 🏆 시장 초과수익!"
+                            elif alpha < -1:
+                                spy_line += " ⚠️ 시장 하회"
+                            lines.append(spy_line)
+                    except Exception:
+                        pass
+                    markup = {"inline_keyboard": [[
+                        {"text": "➕ 포지션 추가", "callback_data": "__help_position"},
+                        {"text": "🤖 AI 포트 진단", "callback_data": "/포트폴리오"},
+                    ]]}
+                    send(chat_id, "\n".join(lines), reply_markup=markup)
 
         # ── /비교 — 두 종목 비교 ─────────────────────────────
         elif cmd in ["/비교", "/compare", "/vs"]:
