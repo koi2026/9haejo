@@ -95,7 +95,7 @@ MAIN_MENU = {
         {"text": "🤖 AI 브리핑", "callback_data": "/브리핑"},
     ], [
         {"text": "📰 뉴스 분석", "callback_data": "/뉴스"},
-        {"text": "🔔 가격 알림", "callback_data": "/알림"},
+        {"text": "🔥 급등락 종목", "callback_data": "/급등"},
     ], [
         {"text": "🔍 종목 분석", "callback_data": "__help_stock"},
         {"text": "⚖️ 종목 비교", "callback_data": "__help_compare"},
@@ -103,8 +103,11 @@ MAIN_MENU = {
         {"text": "📋 내 관심종목", "callback_data": "/watchlist"},
         {"text": "💰 수익률 추적", "callback_data": "/포지션"},
     ], [
+        {"text": "🔔 가격 알림", "callback_data": "/알림"},
         {"text": "✅ 매일 8시 구독", "callback_data": "/구독"},
+    ], [
         {"text": "🌐 매크로 분석", "callback_data": "/매크로"},
+        {"text": "📅 실적 캘린더", "callback_data": "/실적"},
     ]]
 }
 
@@ -1224,6 +1227,35 @@ def handle_update(update: dict):
                     logger.error("chart error: %s", e)
                     send(chat_id, "차트 조회 중 오류가 발생했어요.")
 
+        # ── /급등 — 당일 Top Movers ───────────────────
+        elif cmd in ["/급등", "/movers", "/상승", "/하락"]:
+            send(chat_id, "🔥 당일 급등락 종목 스캔 중...")
+            try:
+                import requests as _req
+                r = _req.get("https://outstanding-upliftment-production-5b02.up.railway.app/market/movers", timeout=30)
+                data = r.json()
+                gainers = data.get("gainers", [])
+                losers = data.get("losers", [])
+                lines = ["<b>🔥 당일 Top Movers</b>\n"]
+                if gainers:
+                    lines.append("🟢 <b>상승 TOP 5</b>")
+                    for i, g in enumerate(gainers, 1):
+                        lines.append(f"  {i}. <b>{g['ticker']}</b> +{g['change_pct']:.2f}% · ${g['price']:,.2f}")
+                if losers:
+                    lines.append("\n🔴 <b>하락 TOP 5</b>")
+                    for i, l in enumerate(losers, 1):
+                        lines.append(f"  {i}. <b>{l['ticker']}</b> {l['change_pct']:.2f}% · ${l['price']:,.2f}")
+                lines.append("\n━━━━━━━━━━━━━━")
+                lines.append("개별 분석: /<b>티커</b> 를 입력하세요")
+                markup = {"inline_keyboard": [[
+                    {"text": "📊 시황 보기", "callback_data": "/시황"},
+                    {"text": "🤖 AI 브리핑", "callback_data": "/브리핑"},
+                ]]}
+                send(chat_id, "\n".join(lines), reply_markup=markup)
+            except Exception as e:
+                logger.error("movers err: %s", e)
+                send(chat_id, "급등락 데이터를 불러오지 못했습니다.")
+
         # ── /한줄 ────────────────────────────────────
         elif cmd in ["/한줄", "/oneliner", "/요약"]:
             send(chat_id, "✍️ 오늘 시장 한줄 요약 중...")
@@ -1344,37 +1376,38 @@ Max 350 chars. Specific and actionable."""
 
         # ── /실적 ────────────────────────────────────────
         elif cmd in ["/실적", "/earnings", "/어닝"]:
-            from datetime import date
-            today = date.today()
-            # Q2 2026 어닝 시즌 주요 종목 (하드코딩, 예상치)
-            EARNINGS = [
-                (date(2026, 7, 15), "JPM", "JP모건", "EPS 예상 $4.20"),
-                (date(2026, 7, 16), "GS", "골드만삭스", "EPS 예상 $8.50"),
-                (date(2026, 7, 22), "TSLA", "테슬라", "EPS 예상 $0.72"),
-                (date(2026, 7, 23), "GOOGL", "알파벳", "EPS 예상 $2.15"),
-                (date(2026, 7, 24), "META", "메타", "EPS 예상 $5.90"),
-                (date(2026, 7, 28), "AAPL", "애플", "EPS 예상 $1.58"),
-                (date(2026, 7, 29), "MSFT", "마이크로소프트", "EPS 예상 $3.10"),
-                (date(2026, 7, 30), "AMZN", "아마존", "EPS 예상 $1.42"),
-                (date(2026, 8, 6), "NVDA", "엔비디아", "EPS 예상 $0.84"),
-                (date(2026, 8, 13), "AVGO", "브로드컴", "EPS 예상 $1.20"),
-            ]
-            upcoming = [(d, sym, name, eps) for d, sym, name, eps in EARNINGS if d >= today][:6]
-            past = [(d, sym, name, eps) for d, sym, name, eps in EARNINGS if d < today][-2:]
-            lines = ["<b>📊 Q2 2026 어닝 캘린더</b>\n"]
-            if past:
-                lines.append("<b>발표 완료</b>")
-                for d, sym, name, eps in past:
-                    ago = (today - d).days
-                    lines.append(f"  <s>{d.strftime('%m/%d')} {sym} ({name})</s> — {ago}일 전")
-                lines.append("")
-            lines.append("<b>예정 발표</b>")
-            for d, sym, name, eps in upcoming:
-                left = (d - today).days
-                marker = " ⚡" if left <= 7 else ""
-                lines.append(f"  {d.strftime('%m/%d')} <b>{sym}</b> ({name})\n    {eps} · D-{left}{marker}")
-            lines.append("\n<i>예상치는 FactSet 컨센서스 기준, 변동될 수 있습니다</i>")
-            send(chat_id, "\n".join(lines))
+            send(chat_id, "📊 실적 발표 일정 조회 중...")
+            try:
+                import requests as _req
+                r = _req.get("https://outstanding-upliftment-production-5b02.up.railway.app/calendar/earnings", timeout=30)
+                data = r.json()
+                events = data.get("events", [])
+                upcoming = [e for e in events if not e.get("is_past")][:7]
+                past = [e for e in events if e.get("is_past")][-2:]
+                lines = ["<b>📊 실적 발표 캘린더</b>\n"]
+                if past:
+                    lines.append("<b>━━ 발표 완료 ━━</b>")
+                    for ev in past:
+                        lines.append(f"  <s>{ev['date'][5:]} {ev['ticker']}</s>")
+                    lines.append("")
+                if upcoming:
+                    lines.append("<b>━━ 예정 발표 ━━</b>")
+                    for ev in upcoming:
+                        left = ev['days_left']
+                        marker = " ⚡" if left <= 3 else ""
+                        badge = "🔴 오늘!" if left == 0 else f"D-{left}"
+                        lines.append(f"  {ev['date'][5:]} <b>{ev['ticker']}</b>{marker} {badge}")
+                    lines.append("\n<i>yfinance 기반 실시간 데이터</i>")
+                else:
+                    lines.append("현재 조회 가능한 실적 발표 일정이 없습니다.")
+                markup = {"inline_keyboard": [[
+                    {"text": "📅 경제지표 캘린더", "callback_data": "/캘린더"},
+                    {"text": "📰 최신 뉴스", "callback_data": "/뉴스"},
+                ]]}
+                send(chat_id, "\n".join(lines), reply_markup=markup)
+            except Exception as e:
+                logger.error("earnings err: %s", e)
+                send(chat_id, "실적 일정을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.")
 
         # ── /캘린더 ──────────────────────────────────────
         elif cmd in ["/캘린더", "/calendar", "/일정", "/캘", "/schedule"]:
