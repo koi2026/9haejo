@@ -91,26 +91,20 @@ def answer_callback(callback_query_id: str):
 
 MAIN_MENU = {
     "inline_keyboard": [[
-        {"text": "📊 시황", "callback_data": "/시황"},
-        {"text": "📰 뉴스", "callback_data": "/뉴스"},
+        {"text": "📊 지금 시황", "callback_data": "/시황"},
+        {"text": "🤖 AI 브리핑", "callback_data": "/브리핑"},
     ], [
-        {"text": "📈 브리핑", "callback_data": "/브리핑"},
-        {"text": "✅ 구독", "callback_data": "/구독"},
+        {"text": "📰 뉴스 분석", "callback_data": "/뉴스"},
+        {"text": "🔔 가격 알림", "callback_data": "/알림"},
     ], [
-        {"text": "🔔 알림 설정", "callback_data": "/알림"},
-        {"text": "📋 관심종목", "callback_data": "/watchlist"},
+        {"text": "🔍 종목 분석", "callback_data": "__help_stock"},
+        {"text": "⚖️ 종목 비교", "callback_data": "__help_compare"},
     ], [
-        {"text": "🌐 매크로", "callback_data": "/매크로"},
-        {"text": "🪙 랭킹", "callback_data": "/랭킹"},
+        {"text": "📋 내 관심종목", "callback_data": "/watchlist"},
+        {"text": "💰 수익률 추적", "callback_data": "/포지션"},
     ], [
-        {"text": "📅 경제지표 캘린더", "callback_data": "/캘린더"},
-        {"text": "⚖️ 종목비교", "callback_data": "__help_stock"},
-    ], [
-        {"text": "🏭 섹터 ETF 분석", "callback_data": "/섹터"},
-        {"text": "📊 52주 고저가", "callback_data": "/52주"},
-    ], [
-        {"text": "🤖 나만의 AI 브리핑", "callback_data": "/AI"},
-        {"text": "🚀 모멘텀 스크리너", "callback_data": "/모멘텀"},
+        {"text": "✅ 매일 8시 구독", "callback_data": "/구독"},
+        {"text": "🌐 매크로 분석", "callback_data": "/매크로"},
     ]]
 }
 
@@ -129,69 +123,112 @@ HELP_MENU = {
 
 HELP_TEXTS = {
     "__help_briefing": (
-        "📈 <b>브리핑 & 시황</b>\n\n"
-        "/요약 — 지금 시황 즉시 한줄 (1초)\n"
-        "/브리핑 — AI 종합 브리핑 (30초)\n"
-        "/시황 — 지수+환율+섹터 히트맵\n"
-        "/뉴스 — 월가 뉴스 AI 분석\n"
-        "/AI — 나만의 watchlist 기반 브리핑\n"
-        "/한줄 — 오늘 시장 공유용 요약\n"
-        "/주간 — 이번 주 지수 성적표\n\n"
-        "/구독 — 매일 8시 자동 브리핑\n"
-        "/알람 09:00 — 원하는 시각 시황 자동 전송\n"
-        "/구독취소 — 구독 해제"
+        "📈 <b>브리핑 & 시황 — 모든 기능</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "⚡ <b>즉시 확인</b>\n"
+        "  /시황 — 미국+한국 지수·환율·섹터 전체\n"
+        "  /요약 — 지금 시장 한줄 스냅샷 (1초)\n"
+        "  /뉴스 — 오늘 월가 뉴스 AI 분석\n\n"
+        "🤖 <b>AI 브리핑</b>\n"
+        "  /브리핑 — 5편짜리 심층 분석 (30초)\n"
+        "  /AI — 내 관심종목 기반 맞춤 브리핑\n"
+        "  /주간 — 이번 주 시장 성적표\n\n"
+        "🔔 <b>자동화</b>\n"
+        "  /구독 — 매일 08:00 자동 브리핑\n"
+        "  /알람 08:30 — 원하는 시각 시황 발송\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "💡 <i>구독자는 관심종목 현황도 함께 수신</i>"
     ),
     "__help_stock": (
-        "🔍 <b>종목 분석</b>\n\n"
-        "<b>티커/한국어 직접 입력:</b>\n"
-        "<code>NVDA</code> <code>엔비디아</code> <code>테슬라</code>\n\n"
-        "/비교 NVDA TSLA — 두 종목 AI 비교\n"
-        "/종목전망 NVDA — 주간 AI 전망\n"
-        "/차트 NVDA — 30일 스파크라인\n"
-        "/뉴스 NVDA — 종목 뉴스 AI 분석\n\n"
-        "<b>스크리너:</b>\n"
-        "/모멘텀 — RSI+MA 모멘텀 종목\n"
-        "/52주 — 52주 신고가/신저가 근접\n"
-        "/배당 — 고배당 TOP10"
+        "🔍 <b>종목 분석 — 사용 방법</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "📌 <b>바로 입력하면 AI 분석 시작</b>\n"
+        "  예) <code>NVDA</code>  <code>엔비디아</code>  <code>테슬라</code>\n\n"
+        "📊 <b>심화 분석</b>\n"
+        "  /비교 NVDA TSLA — AI가 승자 판정\n"
+        "  /뉴스 NVDA — 종목 관련 뉴스 AI 해석\n"
+        "  /종목전망 NVDA — 주간 방향성 전망\n"
+        "  /주간 NVDA — 7일 성과 리포트\n"
+        "  /목표가 NVDA — 애널리스트 컨센서스\n\n"
+        "📡 <b>스크리너</b>\n"
+        "  /모멘텀 — RSI+이평선 돌파 종목\n"
+        "  /52주 — 신고가/신저가 근접 종목\n"
+        "  /배당 — 고배당 안정주 TOP10\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "💡 <i>한국어 종목명도 인식합니다</i>"
+    ),
+    "__help_compare": (
+        "⚖️ <b>종목 비교 — AI 승자 판정</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "두 종목을 나란히 비교해서\n"
+        "Claude AI가 투자 관점 승자를 판정합니다.\n\n"
+        "📌 <b>사용법:</b>\n"
+        "  <code>/비교 NVDA TSLA</code>\n"
+        "  <code>/vs AAPL MSFT</code>\n"
+        "  <code>/compare META GOOG</code>\n\n"
+        "📊 <b>비교 항목:</b>\n"
+        "  가격·등락률·시가총액·PER\n"
+        "  매출 성장률·섹터 + AI 3줄 판정\n"
+        "━━━━━━━━━━━━━━━━━━━"
     ),
     "__help_watchlist": (
-        "📋 <b>관심종목 & 포트폴리오</b>\n\n"
-        "/watchlist — 내 관심종목 현황\n"
-        "/watchlist add NVDA — 추가\n"
-        "/watchlist remove NVDA — 삭제\n\n"
-        "/포트폴리오 — 종목별 매수/관망/매도 AI 신호\n"
-        "  + 포트폴리오 건강도 점수 (0-100)\n\n"
-        "매일 8시 브리핑과 함께 관심종목 현황 자동 발송!"
+        "📋 <b>관심종목 & 수익률 추적</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "👁 <b>관심종목</b>\n"
+        "  /watchlist — 내 종목 현황\n"
+        "  /watchlist add NVDA — 추가\n"
+        "  /watchlist remove NVDA — 삭제\n"
+        "  /포트폴리오 — AI 매수/관망/매도 신호\n\n"
+        "💰 <b>수익률 트래커</b>\n"
+        "  /포지션 add NVDA 10 875.50\n"
+        "    → 10주 @ $875.50으로 등록\n"
+        "  /포지션 — 수익률 + S&P500 비교\n"
+        "  /포지션 remove NVDA — 삭제\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "💡 <i>구독 시 매일 8시 관심종목 현황 자동 발송</i>"
     ),
     "__help_alert": (
-        "🔔 <b>가격 알림</b>\n\n"
-        "<b>등록:</b>\n"
-        "/알림 NVDA 200 — $200 이상 시 알림\n"
-        "/알림 TSLA 150 하락 — $150 이하 시 알림\n\n"
-        "<b>관리:</b>\n"
-        "/알림 — 현재 알림 목록\n"
-        "/알림 삭제 NVDA — NVDA 알림 삭제\n\n"
-        "5분마다 자동 체크, 최대 5개 등록\n"
-        "알림 발동 시 AI 한줄 액션 조언 포함"
+        "🔔 <b>가격 알림 — 자동화 핵심 기능</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "📌 <b>설정 방법</b>\n"
+        "  /알림 NVDA 200\n"
+        "    → NVDA가 $200 이상이면 즉시 알림\n\n"
+        "  /알림 TSLA 150 하락\n"
+        "    → TSLA가 $150 이하이면 즉시 알림\n\n"
+        "📊 <b>관리</b>\n"
+        "  /알림 — 현재 등록 목록\n"
+        "  /알림 삭제 NVDA — 삭제\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "⚙️ <i>5분마다 체크 · 최대 5개 · 알림 발동 시 AI 조언 포함</i>"
     ),
     "__help_macro": (
         "🌐 <b>매크로 & 경제지표</b>\n\n"
-        "/금리 — 2/10/30년물 국채금리 + 수익률 곡선\n"
-        "/원자재 — 금/은/오일/구리/천연가스\n"
-        "/ETF — QQQ/SPY/ARKK/SOXX 등 ETF 분석\n"
-        "/섹터 — SPDR 섹터별 성적표 + AI\n\n"
-        "/매크로 — VIX, DXY, 금리, WTI 종합\n"
-        "/캘린더 — FOMC/CPI/NFP 일정\n"
-        "/환율 — USD/KRW, JPY, CNY AI 전망"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "📈 <b>시장 지표</b>\n"
+        "  /매크로 — VIX·DXY·금리·WTI·금 종합\n"
+        "  /금리 — 2/10/30년물 국채 수익률 곡선\n"
+        "  /환율 — USD/KRW·JPY·CNY AI 전망\n\n"
+        "🏭 <b>섹터·ETF</b>\n"
+        "  /섹터 — SPDR 섹터 성적표\n"
+        "  /ETF — QQQ/SPY/ARKK/SOXX 분석\n"
+        "  /원자재 — 금/은/오일/구리/천연가스\n\n"
+        "📅 <b>이벤트</b>\n"
+        "  /캘린더 — FOMC·CPI·NFP 일정\n"
+        "  /실적 — 어닝시즌 주요 발표 일정\n"
+        "━━━━━━━━━━━━━━━━━━━"
     ),
     "__help_ranking": (
         "🪙 <b>랭킹 & 통계</b>\n\n"
-        "/랭킹 crypto — BTC ETH SOL 시세\n"
-        "/랭킹 bigtech — 빅테크 7종목 랭킹\n"
-        "/랭킹 kr — 코스피 대형주 랭킹\n\n"
-        "/내통계 — 내 구독/관심종목/알림 현황\n"
-        "/설정 — 개인 설정 보기\n\n"
-        "9haejo.vercel.app 에서 웹으로도 확인!"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "🏆 <b>랭킹</b>\n"
+        "  /랭킹 crypto — BTC·ETH·SOL·XRP 시세\n"
+        "  /랭킹 bigtech — 빅테크 7개 성과 비교\n"
+        "  /랭킹 kr — 코스피 대형주 등락 순위\n\n"
+        "📊 <b>내 통계</b>\n"
+        "  /내통계 — 내 구독·알림·관심종목 현황\n"
+        "  /설정 — 개인 설정 (언어·알람 시각)\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "🌐 <i>9haejo.vercel.app 에서 웹으로도 확인</i>"
     ),
 }
 
@@ -277,23 +314,44 @@ def handle_update(update: dict):
             # 즉시 시장 스냅샷 (빠른 응답)
             try:
                 from collector import yf_quote, collect_fear_greed
-                sp = yf_quote("^GSPC")
-                nq = yf_quote("^IXIC")
+                from concurrent.futures import ThreadPoolExecutor
+                def _q(sym): return sym, yf_quote(sym)
+                with ThreadPoolExecutor(max_workers=3) as ex:
+                    results = dict(ex.map(lambda s: _q(s), ["^GSPC", "^IXIC", "KRW=X"]))
+                sp = results.get("^GSPC")
+                nq = results.get("^IXIC")
+                krw = results.get("KRW=X")
                 fg = collect_fear_greed()
-                sp_str = f"S&P500 {'▲' if sp['change_pct']>=0 else '▼'}{abs(sp['change_pct']):.1f}%" if sp else ""
-                nq_str = f"NASDAQ {'▲' if nq['change_pct']>=0 else '▼'}{abs(nq['change_pct']):.1f}%" if nq else ""
-                fg_str = f"F&G {fg.get('score','?')}" if fg else ""
-                market_snapshot = f"\n\n📊 지금 시장: {sp_str} | {nq_str} | {fg_str}" if sp else ""
+                sp_arrow = "▲" if sp and sp["change_pct"] >= 0 else "▼"
+                nq_arrow = "▲" if nq and nq["change_pct"] >= 0 else "▼"
+                sp_str = f"S&P500 {sp_arrow}{abs(sp['change_pct']):.2f}%" if sp else "S&P500 --"
+                nq_str = f"NASDAQ {nq_arrow}{abs(nq['change_pct']):.2f}%" if nq else "NASDAQ --"
+                krw_str = f"달러/원 ₩{krw['price']:,.0f}" if krw else ""
+                fg_score = fg.get("score", "?") if fg else "?"
+                fg_lbl = fg.get("label_kr", "") if fg else ""
+                fg_emoji = "😱" if isinstance(fg_score, int) and fg_score < 25 else "😨" if isinstance(fg_score, int) and fg_score < 45 else "😐" if isinstance(fg_score, int) and fg_score < 55 else "🤑" if isinstance(fg_score, int) and fg_score < 80 else "🚀"
+                market_block = (
+                    f"\n\n<b>📊 현재 시장</b>\n"
+                    f"  {sp_str}  |  {nq_str}\n"
+                    f"  {krw_str}  |  공포탐욕 {fg_emoji} {fg_score}\n"
+                )
             except Exception:
-                market_snapshot = ""
+                market_block = ""
+
             send(chat_id, (
-                "👋 <b>구해조(9haejo)</b>에 오신 걸 환영합니다!\n\n"
-                "🇺🇸 미국 증시 AI 브리핑 서비스\n"
-                "매일 오전 8시, 월가 마감 분석을 받아보세요."
-                f"{market_snapshot}\n\n"
-                f"📌 내 Chat ID: <code>{chat_id}</code>\n"
-                "🌐 <a href='https://9haejo.vercel.app'>구독 신청 사이트</a>\n\n"
-                "아래 버튼으로 바로 시작하세요:"
+                "🤖 <b>구해조 AI에 오신 걸 환영합니다!</b>\n"
+                "━━━━━━━━━━━━━━━━━━━\n\n"
+                "월가 마감 후 Claude AI가 분석한\n"
+                "<b>미국 증시 핵심 브리핑</b>을 매일 아침 8시에\n"
+                "텔레그램으로 직접 받아보세요. 무료입니다.\n"
+                f"{market_block}\n"
+                "━━━━━━━━━━━━━━━━━━━\n"
+                "📌 <b>할 수 있는 것들:</b>\n"
+                "  • <code>NVDA</code> 입력 → 즉시 AI 분석\n"
+                "  • /브리핑 → 오늘 5편 심층 브리핑\n"
+                "  • /알림 NVDA 200 → 목표가 도달 알림\n"
+                "  • /구독 → 매일 8시 자동 발송\n\n"
+                f"🔑 내 Chat ID: <code>{chat_id}</code>"
             ), reply_markup=MAIN_MENU)
 
         # ── /도움말 (키워드 검색) ────────────────────
@@ -336,45 +394,77 @@ def handle_update(update: dict):
 
         # ── /구독 ────────────────────────────────────
         elif cmd in ["/구독", "/subscribe"]:
-            from subscribers import subscribe
+            from subscribers import subscribe, count as sub_count
             is_new = subscribe(chat_id)
+            total = sub_count()
             if is_new:
                 send(chat_id, (
-                    "🎉 <b>구독 완료!</b>\n\n"
-                    "매일 오전 8시, 월가 AI 브리핑을 받으실 준비가 됐습니다!\n\n"
-                    "📋 지금 바로 가장 최근 브리핑을 보내드릴게요..."
+                    "🎉 <b>구독 완료! 환영합니다.</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"현재 <b>{total}명</b>의 투자자와 함께\n"
+                    "매일 오전 8시 미국 증시 분석을 받고 있어요.\n\n"
+                    "📬 <b>매일 발송 내용:</b>\n"
+                    "  ① 지수·섹터·환율 마감 분석\n"
+                    "  ② 오늘의 주목 종목 & 급등락 이유\n"
+                    "  ③ 한국 투자자 관점 영향 분석\n"
+                    "  ④ 내일 체크리스트 & 매수/관망 신호\n"
+                    "  ⑤ 내 관심종목 실시간 현황\n\n"
+                    "📋 최근 브리핑을 지금 바로 보내드릴게요..."
                 ))
-                # 최신 브리핑 1페이지 즉시 발송
+                # 최신 브리핑 즉시 발송
                 try:
                     from briefing_history import get_latest_briefing
                     cached_date, cached_tweets = get_latest_briefing()
                     if cached_tweets:
-                        preview = cached_tweets[0]
-                        send(chat_id, f"<b>📊 최근 브리핑 ({cached_date}) 미리보기</b>\n\n{preview}")
+                        send(chat_id, f"<b>📊 최근 브리핑 미리보기</b> — {cached_date}\n\n{cached_tweets[0]}")
                         share_markup = {
                             "inline_keyboard": [[
                                 {"text": "📈 전체 브리핑 보기", "callback_data": "/브리핑"},
-                                {"text": "📋 관심종목 추가", "callback_data": "/watchlist"},
+                                {"text": "⭐ 관심종목 추가", "callback_data": "/watchlist"},
                             ], [
-                                {"text": "🔗 친구에게 공유", "url": "https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app"},
+                                {"text": "🔔 가격 알림 설정", "callback_data": "/알림"},
+                                {"text": "🔗 친구에게 공유", "url": "https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app&text=AI%20%EC%A3%BC%EC%8B%9D%20%EB%B8%8C%EB%A6%AC%ED%95%91%20%EA%B5%AC%ED%95%B4%EC%A1%B0%20%EC%B6%94%EC%B2%9C!"},
                             ]]
                         }
-                        send(chat_id, "관심종목과 가격 알림도 설정해 보세요!", reply_markup=share_markup)
-                    else:
-                        send(chat_id, "/구독취소 로 언제든지 해제할 수 있어요.")
+                        send(chat_id, (
+                            "✅ <b>다음 단계로 더 많은 가치를 누리세요:</b>\n\n"
+                            "  1️⃣ /watchlist add NVDA — 관심종목 추가\n"
+                            "     (매일 8시 함께 수신)\n\n"
+                            "  2️⃣ /알림 NVDA 200 — 목표가 자동 알림\n"
+                            "     (5분마다 체크, AI 조언 포함)\n\n"
+                            "  3️⃣ 종목명 입력 → 즉시 AI 분석\n"
+                            "     예) <code>NVDA</code>  <code>엔비디아</code>"
+                        ), reply_markup=share_markup)
                 except Exception:
-                    send(chat_id, "/구독취소 로 언제든지 해제할 수 있어요.")
+                    pass
             else:
-                send(chat_id, "이미 구독 중이에요! 매일 8시에 브리핑을 보내드리고 있어요. 🎯")
+                # 이미 구독 중
+                send(chat_id, (
+                    "✅ <b>이미 구독 중이에요!</b>\n\n"
+                    f"현재 <b>{total}명</b>과 함께 매일 8시 브리핑 수신 중.\n\n"
+                    "🔧 <b>더 활용해 보세요:</b>\n"
+                    "  /watchlist add NVDA — 관심종목 추가\n"
+                    "  /알림 NVDA 200 — 가격 알림 설정\n"
+                    "  /AI — 맞춤 AI 브리핑\n"
+                    "  /브리핑 — 오늘 브리핑 즉시 확인"
+                ), reply_markup=MAIN_MENU)
 
         # ── /구독취소 ─────────────────────────────────
         elif cmd in ["/구독취소", "/unsubscribe"]:
             from subscribers import unsubscribe
             removed = unsubscribe(chat_id)
             if removed:
-                send(chat_id, "구독이 해제되었습니다. 언제든지 /구독 으로 다시 시작하세요!")
+                send(chat_id, (
+                    "👋 <b>구독이 해제됐습니다.</b>\n\n"
+                    "언제든지 /구독 으로 다시 시작하실 수 있어요.\n\n"
+                    "📌 종목 분석·알림·관심종목은 그대로 유지됩니다.\n"
+                    "다시 돌아오시면 반갑겠습니다! 💚"
+                ))
             else:
-                send(chat_id, "현재 구독 중이 아닙니다.")
+                send(chat_id, (
+                    "현재 구독 중이 아닙니다.\n\n"
+                    "/구독 으로 매일 8시 무료 AI 브리핑을 시작하세요!"
+                ))
 
         # ── /브리핑 ──────────────────────────────────
         elif cmd in ["/브리핑", "/briefing"]:

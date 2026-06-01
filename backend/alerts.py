@@ -92,25 +92,34 @@ def check_and_fire_alerts():
                     pct = q.get("change_pct", 0) or 0
                     sign = "+" if pct >= 0 else ""
                     # AI 코멘트 생성 (haiku, fast)
+                    direction_icon = "📈" if direction == "above" else "📉"
+                    direction_label = "상향 돌파" if direction == "above" else "하향 이탈"
                     ai_comment = ""
                     try:
                         from stock_analyzer import claude_call
                         _prompt = (
                             f"{alert['ticker']} just {'broke above' if direction=='above' else 'dropped below'} "
                             f"${target:,.2f} (current: ${price:,.2f}, {sign}{pct:.2f}% today). "
-                            f"Give a 1-sentence Korean action advice for retail investors. MAX 80 chars. No emoji."
+                            f"One-sentence Korean action advice for retail investors. Max 80 chars. No emoji at start."
                         )
-                        ai_comment = "\n\nAI: " + claude_call("claude-haiku-4-5", _prompt, max_tokens=100).strip()
+                        ai_comment = claude_call("claude-haiku-4-5", _prompt, max_tokens=100).strip()
                     except Exception:
                         pass
+                    markup = {
+                        "inline_keyboard": [[
+                            {"text": f"🔍 {alert['ticker']} 분석", "callback_data": f"/{alert['ticker']}"},
+                            {"text": "📰 관련 뉴스", "callback_data": f"/뉴스 {alert['ticker']}"},
+                        ]]
+                    }
                     msg = (
-                        f"🔔 <b>가격 알림 발동!</b>\n\n"
-                        f"{alert['ticker']}: ${price:,.2f} ({sign}{pct:.2f}%)\n"
-                        f"목표가 {arrow} ${target:,.2f} 도달"
-                        f"{ai_comment}\n\n"
-                        f"더 자세한 분석: <code>{alert['ticker']}</code>"
+                        f"{direction_icon} <b>목표가 도달!</b> — {alert['ticker']}\n"
+                        "━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"<b>현재가:</b> ${price:,.2f}  ({sign}{pct:.2f}% 오늘)\n"
+                        f"<b>목표가:</b> ${target:,.2f} {direction_label}\n\n"
+                        + (f"💡 <i>{ai_comment}</i>\n\n" if ai_comment else "")
+                        + f"<code>{alert['ticker']}</code> 를 입력하면 심층 AI 분석을 바로 받을 수 있어요."
                     )
-                    send(chat_id, msg)
+                    send(chat_id, msg, reply_markup=markup)
                     fired.append((chat_id, i))
                     logger.info("Alert fired: %s %s %s %.2f", chat_id, alert["ticker"], direction, target)
             except Exception as e:

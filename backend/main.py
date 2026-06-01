@@ -131,16 +131,28 @@ def send_realtime_updates():
                     name = info.get("name", ticker)
                     change_from_prev = (price - prev) / prev * 100 if prev else 0
                     change_from_start = (price - start) / start * 100 if start else 0
-                    arrow = "▲" if q["change_pct"] >= 0 else "▼"
-                    move = "+" if change_from_prev >= 0 else ""
+                    day_arrow = "▲" if q["change_pct"] >= 0 else "▼"
+                    day_color = "+" if q["change_pct"] >= 0 else ""
+                    move_arrow = "▲" if change_from_prev >= 0 else "▼"
+                    move_sign = "+" if change_from_prev >= 0 else ""
+                    start_sign = "+" if change_from_start >= 0 else ""
+                    # 5분 변동 크면 강조
+                    move_str = f"{move_arrow}{move_sign}{change_from_prev:.2f}%"
+                    if abs(change_from_prev) >= 0.5:
+                        move_str = f"<b>{move_str}</b>"
                     msg = (
-                        f"📡 <b>{name} ({ticker})</b> 5분 업데이트\n\n"
-                        f"현재가: <b>${price:,.2f}</b> {arrow}{abs(q['change_pct']):.2f}%\n"
-                        f"5분 변동: {move}{change_from_prev:.2f}%\n"
-                        f"추적 시작 대비: {'+' if change_from_start >= 0 else ''}{change_from_start:.2f}%\n\n"
-                        f"<i>/실시간 중지 — 추적 중단</i>"
+                        f"📡 <b>{ticker}</b> 실시간 업데이트\n"
+                        f"━━━━━━━━━━━━━━━━\n\n"
+                        f"<b>${price:,.2f}</b>  {day_arrow}{day_color}{q['change_pct']:.2f}% 오늘\n"
+                        f"5분 변동: {move_str}\n"
+                        f"추적 시작: {start_sign}{change_from_start:.2f}%\n\n"
+                        f"<i>/실시간 중지 로 추적 중단</i>"
                     )
-                    send(chat_id, msg)
+                    markup = {"inline_keyboard": [[
+                        {"text": f"🔍 {ticker} 심층 분석", "callback_data": f"/{ticker}"},
+                        {"text": "⏹ 추적 중단", "callback_data": "/실시간 중지"},
+                    ]]}
+                    send(chat_id, msg, reply_markup=markup)
                     update_prev_price(chat_id, ticker, price)
                 except Exception as e:
                     logger.error("realtime update error %s/%s: %s", chat_id, ticker, e)
