@@ -354,15 +354,18 @@ def handle_update(update: dict):
                             use_cache = True
                     except Exception:
                         pass
-                if use_cache:
+                from user_settings import get_settings
+                user_lang = get_settings(chat_id).get("language", "ko")
+                if use_cache and user_lang == "ko":
                     send(chat_id, f"📋 <b>오늘 브리핑 ({cached_date})</b> — 캐시됨")
                     result_tweets = cached_tweets
                 else:
-                    send(chat_id, "⏳ AI가 시장을 분석 중입니다... (30초 정도 소요됩니다)")
+                    lang_msg = " (영어)" if user_lang == "en" else ""
+                    send(chat_id, f"⏳ AI가 시장을 분석 중입니다{lang_msg}... (30초 정도 소요됩니다)")
                     from collector import collect_all
                     from summarizer import summarize
                     data = collect_all()
-                    result = summarize(data)
+                    result = summarize(data, language=user_lang)
                     result_tweets = result["tweets"]
             except Exception:
                 send(chat_id, "⏳ AI가 시장을 분석 중입니다... (30초 정도 소요됩니다)")
@@ -592,19 +595,31 @@ def handle_update(update: dict):
             if len(parts) == 1:
                 s = get_settings(chat_id)
                 wl = "켜짐" if s.get("watchlist_briefing") else "꺼짐"
+                lang = "영어" if s.get("language") == "en" else "한국어"
                 send(chat_id, (
                     f"<b>내 설정</b>\n\n"
-                    f"관심종목 브리핑 포함: {wl}\n\n"
+                    f"관심종목 브리핑 포함: {wl}\n"
+                    f"브리핑 언어: {lang}\n\n"
                     "<b>변경하기:</b>\n"
                     "/설정 관심종목 켜기\n"
-                    "/설정 관심종목 끄기"
+                    "/설정 관심종목 끄기\n"
+                    "/설정 언어 영어\n"
+                    "/설정 언어 한국어"
                 ))
             elif len(parts) >= 3 and "관심종목" in parts[1]:
                 on = parts[2] in ["켜기", "on", "true"]
                 update_setting(chat_id, "watchlist_briefing", on)
                 send(chat_id, f"관심종목 브리핑 포함: {'켜짐' if on else '꺼짐'} ✅")
+            elif len(parts) >= 3 and "언어" in parts[1]:
+                lang_choice = parts[2].lower()
+                if lang_choice in ["영어", "en", "english"]:
+                    update_setting(chat_id, "language", "en")
+                    send(chat_id, "브리핑 언어가 영어(English)로 설정됐습니다. ✅\n/브리핑 으로 영어 브리핑을 받아보세요!")
+                else:
+                    update_setting(chat_id, "language", "ko")
+                    send(chat_id, "브리핑 언어가 한국어로 설정됐습니다. ✅")
             else:
-                send(chat_id, "사용법: /설정 관심종목 켜기/끄기")
+                send(chat_id, "사용법: /설정 관심종목 켜기/끄기 | /설정 언어 영어/한국어")
 
         # ── /포트폴리오 ──────────────────────────────────
         elif cmd in ["/포트폴리오", "/portfolio"]:
@@ -1172,6 +1187,83 @@ def handle_update(update: dict):
                 send(chat_id, "조회 중 오류가 발생했어요.")
 
         # ── /실시간 — 종목 실시간 5분 추적 ─────────────
+        # ── /옵션 — 종목 옵션 IV 공포지수 ──────────────
+        elif cmd in ["/옵션", "/options", "/iv", "/IV"]:
+            parts = text.split()
+            raw_ticker = parts[1].upper() if len(parts) > 1 else "SPY"
+            from stock_analyzer import resolve_ticker
+            ticker = resolve_ticker(raw_ticker) or raw_ticker
+            send(chat_id, f"📊 <b>{ticker}</b> 옵션 데이터 조회 중...")
+            try:
+                import yfinance as yf
+                from collector import yf_quote
+                from stock_analyzer import claude_call
+                t = yf.Ticker(ticker)
+                quote = yf_quote(ticker)
+                if not quote:
+                    send(chat_id, f"❌ {ticker} 시세를 가져올 수 없습니다.")
+                else:
+                    exps = t.options
+                    if not exps:
+                        send(chat_id, f"{ticker} 옵션 데이터가 없습니다.")
+                    else:
+                        # nearest expiry
+                        exp = exps[0]
+                        chain = t.option_chain(exp)
+                        calls = chain.calls
+                        puts = chain.puts
+                        price = quote["price"]
+                        # ATM options (near current price)
+                        atm_calls = calls[abs(calls["strike"] - price) < price * 0.05]
+                        atm_puts = puts[abs(puts["strike"] - price) < price * 0.05]
+                        avg_call_iv = atm_calls["impliedVolatility"].mean() * 100 if len(atm_calls) > 0 else None
+                        avg_put_iv = atm_puts["impliedVolatility"].mean() * 100 if len(atm_puts) > 0 else None
+                        put_call_ratio = (len(puts) / len(calls)) if len(calls) > 0 else None
+                        # IV fear gauge
+                        avg_iv = (avg_call_iv or 0 + avg_put_iv or 0) / 2 if avg_call_iv and avg_put_iv else (avg_call_iv or avg_put_iv or 0)
+                        if avg_iv > 60:
+                            iv_mood = "극도의 공포 😱"
+                        elif avg_iv > 40:
+                            iv_mood = "공포 😰"
+                        elif avg_iv > 25:
+                            iv_mood = "보통 😐"
+                        elif avg_iv > 15:
+                            iv_mood = "낮음 🙂"
+                        else:
+                            iv_mood = "매우 낮음 😴"
+                        pcr_label = ""
+                        if put_call_ratio:
+                            if put_call_ratio > 1.2:
+                                pcr_label = "풋 우세 (하락 베팅 많음) 🐻"
+                            elif put_call_ratio < 0.8:
+                                pcr_label = "콜 우세 (상승 베팅 많음) 🐂"
+                            else:
+                                pcr_label = "중립"
+                        lines = [f"<b>📊 {ticker} 옵션 분석 ({exp} 만기)</b>\n"]
+                        lines.append(f"현재가: <b>${price:,.2f}</b>")
+                        if avg_call_iv:
+                            lines.append(f"콜 내재변동성(IV): <b>{avg_call_iv:.1f}%</b>")
+                        if avg_put_iv:
+                            lines.append(f"풋 내재변동성(IV): <b>{avg_put_iv:.1f}%</b>")
+                        lines.append(f"IV 공포지수: <b>{iv_mood}</b>")
+                        if put_call_ratio:
+                            lines.append(f"풋/콜 비율: <b>{put_call_ratio:.2f}</b> — {pcr_label}")
+                        lines.append(f"\n옵션 거래량: 콜 {len(calls)}개 / 풋 {len(puts)}개")
+                        # AI commentary
+                        try:
+                            ai = claude_call("claude-haiku-4-5", (
+                                f"{ticker} 옵션 데이터: ATM 콜 IV {avg_call_iv:.1f if avg_call_iv else 'N/A'}%, "
+                                f"풋 IV {avg_put_iv:.1f if avg_put_iv else 'N/A'}%, P/C 비율 {put_call_ratio:.2f if put_call_ratio else 'N/A'}. "
+                                f"이 데이터로 향후 시장 방향 및 투자자 심리를 한국어 2문장으로 해석해주세요."
+                            ), max_tokens=200)
+                            lines.append(f"\n<i>{ai}</i>")
+                        except Exception:
+                            pass
+                        send(chat_id, "\n".join(lines))
+            except Exception as e:
+                logger.error("options error: %s", e)
+                send(chat_id, f"옵션 데이터 조회 중 오류: {type(e).__name__}")
+
         elif cmd in ["/실시간", "/live", "/추적"]:
             parts = text.split()
             sub_cmd = parts[1].lower() if len(parts) > 1 else ""

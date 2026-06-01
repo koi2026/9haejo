@@ -58,7 +58,7 @@ def fmt_pct(pct, with_arrow=True):
     return f"{a}{abs(pct):.2f}%"
 
 
-def summarize(data: dict) -> dict:
+def summarize(data: dict, language: str = "ko") -> dict:
     idx  = data.get("indices", {})
     sec  = data.get("sectors", {})
     stk  = data.get("big_stocks", {})
@@ -172,6 +172,60 @@ Header: <b>📋 내일 {date} 투자 체크리스트</b>
 - 매수/관망/주의 신호 각 1가지씩
 - 핵심 한줄 요약
 구독: @goohaejo_bot"""
+
+    # English briefing override
+    if language == "en":
+        prompt = f"""You are the head analyst at 9haejo, Korea's AI stock briefing service for global investors.
+Write EXACTLY 5 Telegram messages in ENGLISH for {date} ({wd}) — Bloomberg quality.
+Separate each message with exactly: ---
+
+DATA (use EXACT numbers):
+Indices: {idx_text}
+Sectors: {sec_text}
+Stocks: {stk_text}
+FX: USD/KRW={krw}  USD/JPY={jpy}
+Fear&Greed: {fg_score}/100
+Best sector: {best_sec[0]} {fmt_pct(best_sec[1])} | Worst: {worst_sec[0]} {fmt_pct(worst_sec[1])}
+Top gainer: {top_gainer[0]} {fmt_pct(top_gainer[1])} | Top loser: {top_loser[0]} {fmt_pct(top_loser[1])}
+News: {top_news}
+
+STYLE RULES:
+- Each message MAX 380 chars. English with ticker symbols.
+- Always format: NVDA +3.24% ($875.20)
+- Use HTML bold <b>text</b> for headers/key numbers
+- Give "SO WHAT" for international investors after each data point
+- Specific, confident, actionable — Bloomberg terminal tone
+
+[1/5] Market Close
+Header: <b>📊 US Markets {date} Close</b>
+- S&P500/NASDAQ exact levels + % change
+- Fear&Greed {fg_score} → market sentiment interpretation
+- One-line market summary
+
+[2/5] Sector Scorecard
+Header: <b>🔥 Sector Performance</b>
+{sec_bar}
+- #1 sector: why it rallied + key stocks
+- Laggard sector: risk factors
+
+[3/5] Stock Spotlight
+Header: <b>⚡ Today's Movers</b>
+- {top_gainer[0]}: exact price/% + catalyst
+- {top_loser[0]}: exact price/% + reason
+- One stock to watch tomorrow + why
+
+[4/5] Global Impact
+Header: <b>🌐 Global Market Impact</b>
+- USD/KRW {krw} → Asia/EM implications
+- Key sector trends for Asian open
+- Expected flows and positioning
+
+[5/5] Tomorrow's Playbook
+Header: <b>📋 Tomorrow's Checklist</b>
+- Key economic events/catalysts (with times)
+- One buy / hold / avoid signal each
+- Bottom-line one-liner
+Subscribe: @goohaejo_bot"""
 
     client = get_client()
     raw = claude_call_with_retry(client, "claude-opus-4-5", prompt, max_tokens=2500)
