@@ -227,6 +227,25 @@ def handle_update(update: dict):
                     ))
                 else:
                     send(chat_id, f"{ticker} 알림이 없습니다.")
+            elif cb_data in ("__news_bullish", "__news_bearish"):
+                sentiment = "Bullish" if cb_data == "__news_bullish" else "Bearish"
+                label = "🟢 호재" if sentiment == "Bullish" else "🔴 악재"
+                try:
+                    from collector import av_news_sentiment
+                    news = av_news_sentiment()
+                    filtered = [n for n in news if n.get("sentiment") == sentiment][:5]
+                    if not filtered:
+                        send(chat_id, f"{label} 뉴스가 없습니다.")
+                    else:
+                        lines = [f"<b>{label} 뉴스 필터</b>\n"]
+                        for item in filtered:
+                            lines.append(f"• {item['title'][:80]}")
+                        send(chat_id, "\n".join(lines))
+                except Exception:
+                    send(chat_id, "뉴스 필터 중 오류가 발생했습니다.")
+            elif cb_data.startswith("__stock_"):
+                ticker = cb_data[len("__stock_"):]
+                handle_update({"message": {"chat": {"id": chat_id}, "text": f"/{ticker}"}})
             elif cb_data:
                 handle_update({"message": {"chat": {"id": chat_id}, "text": cb_data}})
             return
@@ -670,19 +689,29 @@ def handle_update(update: dict):
             if stock_query:
                 from stock_analyzer import resolve_ticker, summarize_news
                 ticker = resolve_ticker(stock_query) or stock_query.upper()
-                send(chat_id, f"📰 {ticker} 관련 뉴스 분석 중...")
+                send(chat_id, f"📰 <b>{ticker}</b> 뉴스 분석 중... (5~10초)")
                 try:
                     result = summarize_news(ticker)
-                    send(chat_id, result)
+                    markup = {"inline_keyboard": [[
+                        {"text": f"🌐 {ticker} 분석 페이지", "url": f"https://9haejo.vercel.app/stock/{ticker}"},
+                        {"text": "📈 주가 확인", "callback_data": f"__stock_{ticker}"},
+                    ]]}
+                    send(chat_id, result, reply_markup=markup)
                 except Exception as e:
                     logger.error("news error: %s", e)
                     send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
             else:
-                send(chat_id, "📰 오늘의 월가 뉴스 분석 중...")
+                send(chat_id, "📰 오늘의 월가 뉴스 AI 분석 중...")
                 try:
                     from stock_analyzer import summarize_news
                     result = summarize_news()
-                    send(chat_id, result)
+                    markup = {"inline_keyboard": [[
+                        {"text": "🟢 호재 종목", "callback_data": "__news_bullish"},
+                        {"text": "🔴 악재 종목", "callback_data": "__news_bearish"},
+                    ], [
+                        {"text": "🌐 브리핑 아카이브", "url": "https://9haejo.vercel.app/briefings"},
+                    ]]}
+                    send(chat_id, result, reply_markup=markup)
                 except Exception as e:
                     logger.error("news error: %s", e)
                     send(chat_id, "뉴스 조회 중 오류가 발생했어요.")
