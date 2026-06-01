@@ -756,6 +756,49 @@ Write 3-4 sentences: (1) current momentum, (2) key risk/opportunity, (3) what Ko
     return result
 
 
+@app.get("/stock/{ticker}/peers")
+def stock_peers(ticker: str):
+    """동종 섹터 주요 종목 현황 (5개, 캐시 5분)"""
+    from collector import yf_quote
+    from cache import news_cache
+    import yfinance as yf
+    ticker = ticker.upper().strip()
+    cache_key = f"peers:{ticker}"
+    cached = news_cache.get(cache_key)
+    if cached:
+        return cached
+    # 섹터별 피어 매핑
+    SECTOR_PEERS = {
+        "Technology": ["NVDA", "MSFT", "AAPL", "META", "GOOGL", "AMD", "AVGO", "INTC", "ORCL", "ADBE"],
+        "Consumer Cyclical": ["AMZN", "TSLA", "HD", "MCD", "NKE", "SBUX", "BKNG", "GM"],
+        "Communication Services": ["META", "GOOGL", "NFLX", "DIS", "T", "VZ", "SNAP", "PINS"],
+        "Financial Services": ["JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "AXP"],
+        "Healthcare": ["JNJ", "PFE", "ABBV", "MRK", "UNH", "LLY", "AMGN", "GILD"],
+        "Energy": ["XOM", "CVX", "COP", "SLB", "OXY", "MPC", "VLO"],
+        "Industrials": ["BA", "CAT", "HON", "GE", "UPS", "RTX", "LMT"],
+        "Consumer Defensive": ["WMT", "PG", "KO", "PEP", "COST", "CL", "MDLZ"],
+        "Basic Materials": ["LIN", "APD", "SHW", "FCX", "NEM", "AA"],
+        "Real Estate": ["AMT", "PLD", "CCI", "EQIX", "SPG", "O"],
+        "Utilities": ["NEE", "DUK", "SO", "D", "AEP", "EXC"],
+    }
+    try:
+        info = yf.Ticker(ticker).info or {}
+        sector = info.get("sector", "")
+        peers_all = SECTOR_PEERS.get(sector, ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN"])
+        peers = [p for p in peers_all if p != ticker][:5]
+    except Exception:
+        peers = ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN"]
+        sector = ""
+    result_peers = []
+    for p in peers:
+        q = yf_quote(p)
+        if q:
+            result_peers.append({"ticker": p, "price": q["price"], "change_pct": q["change_pct"]})
+    result = {"ticker": ticker, "sector": sector, "peers": result_peers}
+    news_cache.set(cache_key, result)
+    return result
+
+
 @app.get("/market/live")
 def market_live():
     """실시간 시장 데이터 (지수·환율·공포탐욕·빅테크) -- 프론트 위젯용"""
