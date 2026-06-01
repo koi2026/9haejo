@@ -1264,6 +1264,82 @@ def handle_update(update: dict):
                 logger.error("options error: %s", e)
                 send(chat_id, f"옵션 데이터 조회 중 오류: {type(e).__name__}")
 
+        # ── /목표가 — 애널리스트 컨센서스 ──────────────────
+        elif cmd in ["/목표가", "/target", "/analyst", "/애널리스트"]:
+            parts = text.split()
+            if len(parts) < 2:
+                send(chat_id, "사용법: /목표가 NVDA")
+            else:
+                raw = parts[1].upper()
+                from stock_analyzer import resolve_ticker
+                ticker = resolve_ticker(raw) or raw
+                send(chat_id, f"📊 <b>{ticker}</b> 애널리스트 컨센서스 조회 중...")
+                try:
+                    import yfinance as yf
+                    from collector import yf_quote
+                    from stock_analyzer import claude_call
+                    t = yf.Ticker(ticker)
+                    quote = yf_quote(ticker)
+                    current = quote["price"] if quote else None
+                    # Analyst price targets
+                    try:
+                        apt = t.analyst_price_targets
+                        mean_target = apt.get("mean") if apt else None
+                        high_target = apt.get("high") if apt else None
+                        low_target = apt.get("low") if apt else None
+                        num_analysts = apt.get("numberOfAnalystOpinions") if apt else None
+                    except Exception:
+                        mean_target = high_target = low_target = num_analysts = None
+                    # Recommendations summary
+                    try:
+                        rec = t.recommendations_summary
+                        if rec is not None and len(rec) > 0:
+                            latest = rec.iloc[0]
+                            strong_buy = int(latest.get("strongBuy", 0))
+                            buy = int(latest.get("buy", 0))
+                            hold = int(latest.get("hold", 0))
+                            sell = int(latest.get("sell", 0))
+                            strong_sell = int(latest.get("strongSell", 0))
+                        else:
+                            strong_buy = buy = hold = sell = strong_sell = None
+                    except Exception:
+                        strong_buy = buy = hold = sell = strong_sell = None
+                    lines = [f"<b>📊 {ticker} 애널리스트 컨센서스</b>\n"]
+                    if current:
+                        lines.append(f"현재가: <b>${current:,.2f}</b>")
+                    if mean_target:
+                        upside = ((mean_target - current) / current * 100) if current else None
+                        arrow = "▲" if upside and upside > 0 else "▼"
+                        lines.append(f"평균 목표주가: <b>${mean_target:,.2f}</b> {arrow}{abs(upside):.1f}% 여력" if upside else f"평균 목표주가: ${mean_target:,.2f}")
+                    if high_target and low_target:
+                        lines.append(f"목표가 범위: ${low_target:,.2f} ~ ${high_target:,.2f}")
+                    if num_analysts:
+                        lines.append(f"분석 애널리스트: {num_analysts}명")
+                    if strong_buy is not None:
+                        total = strong_buy + buy + hold + sell + strong_sell
+                        if total > 0:
+                            lines.append(f"\n<b>추천 분포:</b>")
+                            lines.append(f"강력매수 {strong_buy} | 매수 {buy} | 보유 {hold} | 매도 {sell} | 강력매도 {strong_sell}")
+                            buy_pct = (strong_buy + buy) / total * 100
+                            hold_pct = hold / total * 100
+                            sell_pct = (sell + strong_sell) / total * 100
+                            consensus = "매수" if buy_pct >= 60 else "보유" if hold_pct >= 40 else "매도"
+                            lines.append(f"컨센서스: <b>{consensus}</b> (매수 {buy_pct:.0f}% | 보유 {hold_pct:.0f}% | 매도 {sell_pct:.0f}%)")
+                    if len(lines) <= 2:
+                        send(chat_id, f"{ticker} 애널리스트 데이터를 가져올 수 없습니다.")
+                    else:
+                        # AI interpretation
+                        try:
+                            summary_data = f"현재가 ${current}, 목표가 ${mean_target}, 매수비율 {(strong_buy+buy)/((strong_buy+buy+hold+sell+strong_sell) or 1)*100:.0f}%"
+                            ai = claude_call("claude-haiku-4-5", f"{ticker} {summary_data} 데이터로 투자 관점 한국어 1문장 코멘트.", max_tokens=100)
+                            lines.append(f"\n<i>{ai}</i>")
+                        except Exception:
+                            pass
+                        send(chat_id, "\n".join(lines))
+                except Exception as e:
+                    logger.error("analyst error: %s", e)
+                    send(chat_id, f"목표가 조회 중 오류: {type(e).__name__}")
+
         # ── /포지션 — 수익률 계산 포트폴리오 ──────────────
         elif cmd in ["/포지션", "/position", "/수익"]:
             parts = text.split()
