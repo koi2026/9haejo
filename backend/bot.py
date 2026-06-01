@@ -413,7 +413,7 @@ def handle_update(update: dict):
                 send(chat_id, "브리핑 생성 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.")
 
         # ── /시황 ────────────────────────────────────
-        elif cmd in ["/시황", "/market"]:
+        elif cmd in ["/시황", "/market", "/마켓"]:
             send(chat_id, "⏳ 시장 현황 조회 중...")
             try:
                 from collector import yf_quote, collect_fear_greed
@@ -444,49 +444,73 @@ def handle_update(update: dict):
                         except Exception:
                             pass
 
-                def fmt(name, q):
-                    if not q or not isinstance(q, dict) or "price" not in q:
-                        return f"{name}: --"
-                    arrow = "▲" if q["change_pct"] >= 0 else "▼"
-                    sign = "+" if q["change_pct"] >= 0 else ""
-                    return f"{name}: {q['price']:,.2f} {arrow}{sign}{q['change_pct']:.2f}%"
+                def emoji_bar(pct, width=6):
+                    blocks = min(width, max(1, int(abs(pct) / 0.4)))
+                    if pct >= 0:
+                        return "█" * blocks + "░" * (width - blocks)
+                    return "░" * (width - blocks) + "█" * blocks
 
-                lines = ["<b>📊 미국 시장 현황</b>\n"]
-                for name, _ in index_syms:
-                    lines.append(fmt(name, results.get(name)))
-
-                lines.append("\n<b>한국 시장</b>")
-                for name, _ in kr_syms:
-                    lines.append(fmt(name, results.get(name)))
-
-                lines.append("\n<b>환율</b>")
-                for name, _ in fx_syms:
-                    lines.append(fmt(name, results.get(name)))
+                def fmt_idx(name, q):
+                    if not q or "price" not in q: return f"  {name}: --"
+                    pct = q["change_pct"]
+                    arrow = "▲" if pct >= 0 else "▼"
+                    sign = "+" if pct >= 0 else ""
+                    price_str = f"{q['price']:,.2f}" if q['price'] < 10000 else f"{q['price']:,.0f}"
+                    return f"  {name}: {price_str} {arrow}{sign}{pct:.2f}%"
 
                 fg = results.get("FG", {})
-                if fg:
-                    lines.append(f"\n<b>공포탐욕지수</b>: {fg.get('score','?')} ({fg.get('label_kr','?')})")
+                fg_score = fg.get("score", "?") if fg else "?"
+                fg_label = fg.get("label_kr", "?") if fg else "?"
+                fg_emoji = "😱" if isinstance(fg_score, int) and fg_score < 25 else "😨" if isinstance(fg_score, int) and fg_score < 45 else "😐" if isinstance(fg_score, int) and fg_score < 55 else "🤑" if isinstance(fg_score, int) and fg_score < 80 else "🚀"
 
-                # 섹터 히트맵 (텍스트 블록 아트)
-                lines.append("\n<b>📊 섹터 히트맵</b>")
-                lines.append("<code>")
-                for name, _ in sector_syms:
+                from datetime import datetime, timezone
+                now_kst = datetime.now(timezone.utc).strftime("%H:%M UTC")
+
+                lines = [f"<b>📊 시장 현황</b> <i>({now_kst})</i>\n"]
+
+                # 미국 지수
+                lines.append("<b>🇺🇸 미국</b>")
+                for name, _ in index_syms:
+                    lines.append(fmt_idx(name, results.get(name)))
+
+                # FG 인라인
+                lines.append(f"\n  공포탐욕 {fg_emoji} <b>{fg_score}</b>/100 {fg_label}")
+
+                # 한국
+                lines.append("\n<b>🇰🇷 한국</b>")
+                for name, _ in kr_syms:
+                    lines.append(fmt_idx(name, results.get(name)))
+
+                # 환율
+                lines.append("\n<b>💱 환율</b>")
+                for name, sym in fx_syms:
                     q = results.get(name)
-                    if q and isinstance(q, dict) and "change_pct" in q:
+                    if q and "price" in q:
+                        p = q["price"]
                         pct = q["change_pct"]
-                        # 블록 수 (0~5)
-                        blocks = min(5, int(abs(pct) / 0.5) + 1) if abs(pct) > 0.05 else 1
-                        if pct >= 0:
-                            bar = "█" * blocks
-                            label = f"+{pct:.2f}%"
-                            lines.append(f"{name:<6} {bar:<5} {label}")
-                        else:
-                            bar = "░" * blocks
-                            label = f"{pct:.2f}%"
-                            lines.append(f"{name:<6} {bar:<5} {label}")
+                        if "KRW" in name: price_str = f"₩{p:,.0f}"
+                        elif "JPY" in name: price_str = f"¥{p:.2f}"
+                        else: price_str = f"${p:.4f}"
+                        arrow = "▲" if pct >= 0 else "▼"
+                        lines.append(f"  {name}: {price_str} {arrow}{'+' if pct>=0 else ''}{pct:.2f}%")
+
+                # 섹터 랭킹 (정렬됨)
+                sector_data = [(name, results.get(name)) for name, _ in sector_syms if results.get(name) and "change_pct" in (results.get(name) or {})]
+                sector_data.sort(key=lambda x: x[1]["change_pct"], reverse=True)
+                lines.append("\n<b>📊 섹터 순위</b>")
+                lines.append("<code>")
+                for name, q in sector_data:
+                    pct = q["change_pct"]
+                    bar = emoji_bar(pct)
+                    sign = "+" if pct >= 0 else ""
+                    lines.append(f"{name:<5} {bar} {sign}{pct:.2f}%")
                 lines.append("</code>")
 
-                send(chat_id, "\n".join(lines))
+                markup = {"inline_keyboard": [[
+                    {"text": "📈 종목 분석", "callback_data": "__help_stock"},
+                    {"text": "🤖 AI 브리핑", "callback_data": "/브리핑"},
+                ]]}
+                send(chat_id, "\n".join(lines), reply_markup=markup)
             except Exception as e:
                 logger.error("market error: %s", e)
                 send(chat_id, "시장 데이터 조회 중 오류가 발생했어요.")
