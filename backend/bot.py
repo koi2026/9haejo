@@ -1118,16 +1118,32 @@ def handle_update(update: dict):
                 alerts_list = get_alerts(chat_id)
                 from briefing_history import get_all_dates
                 history_dates = get_all_dates()
+                sub_icon = "🟢" if is_sub else "⚪"
+                wl_preview = ", ".join(watchlist[:4]) + ("..." if len(watchlist) > 4 else "") if watchlist else "없음"
+                alert_preview = ""
+                if alerts_list:
+                    a0 = alerts_list[0]
+                    di = "📈" if a0["direction"] == "above" else "📉"
+                    alert_preview = f"\n  {di} {a0['ticker']} ${a0['target']:,.0f}"
+                    if len(alerts_list) > 1:
+                        alert_preview += f" 외 {len(alerts_list)-1}개"
                 lines = [
-                    "<b>📊 내 구해조 통계</b>\n",
-                    f"구독 상태: {'✅ 구독 중' if is_sub else '❌ 미구독'}",
-                    f"관심종목: {len(watchlist)}개 ({', '.join(watchlist[:3])}{'...' if len(watchlist)>3 else ''})" if watchlist else "관심종목: 없음",
-                    f"가격 알림: {len(alerts_list)}개 활성 (최대 5개)",
-                    f"보관된 브리핑: {len(history_dates)}일치",
+                    "<b>📋 내 구해조 현황</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━\n",
+                    f"{sub_icon} <b>구독:</b> {'매일 08:00 AI 브리핑 수신 중' if is_sub else '미구독 — /구독 으로 시작하세요'}",
+                    f"⭐ <b>관심종목</b> {len(watchlist)}개: {wl_preview}",
+                    f"🔔 <b>가격 알림</b> {len(alerts_list)}/5개{alert_preview}",
+                    f"📚 <b>브리핑 아카이브:</b> {len(history_dates)}일치 보관",
                     "",
-                    "<i>더 많은 기능: /help</i>",
+                    "━━━━━━━━━━━━━━━━━━━",
+                    "<i>/watchlist · /알림 · /브리핑 으로 바로 이동</i>",
                 ]
-                send(chat_id, "\n".join(lines))
+                markup_stats = {"inline_keyboard": [[
+                    {"text": "⭐ 관심종목", "callback_data": "/watchlist"},
+                    {"text": "🔔 알림", "callback_data": "/알림"},
+                    {"text": "📋 브리핑", "callback_data": "/브리핑"},
+                ]]}
+                send(chat_id, "\n".join(lines), reply_markup=markup_stats)
             except Exception as e:
                 logger.error("mystats error: %s", e)
                 send(chat_id, "통계 조회 중 오류가 발생했어요.")

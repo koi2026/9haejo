@@ -1579,8 +1579,8 @@ export default function Home() {
           <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center", padding: "8px 0 4px" }}>
             {[
               { icon: "📊", label: "시황", href: "#market" },
-              { icon: "📰", label: "뉴스", href: "#news" },
               { icon: "📋", label: "브리핑", href: "#briefing" },
+              { icon: "⚖️", label: "비교", href: "/compare", isLink: true },
               { icon: "🔍", label: "종목", href: "#lookup" },
               { icon: "✅", label: "구독", href: "#subscribe", cta: true },
             ].map(tab => (
