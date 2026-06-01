@@ -1039,6 +1039,9 @@ export default function Home() {
             <Link href="/compare" style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
               ⚖️ 비교
             </Link>
+            <Link href="/watchlist" style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
+              ⭐ 관심종목
+            </Link>
             <button onClick={toggleLang} style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", letterSpacing: 1 }}>
               {T.langToggle}
             </button>
@@ -1730,7 +1733,7 @@ export default function Home() {
               { icon: "📊", label: "시황", href: "#market" },
               { icon: "📋", label: "브리핑", href: "#briefing" },
               { icon: "⚖️", label: "비교", href: "/compare", isLink: true },
-              { icon: "🔍", label: "종목", href: "#lookup" },
+              { icon: "⭐", label: "관심", href: "/watchlist", isLink: true },
               { icon: "✅", label: "구독", href: "#subscribe", cta: true },
             ].map(tab => (
               <a key={tab.label} href={tab.href} style={{
