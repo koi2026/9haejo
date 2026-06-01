@@ -1215,7 +1215,8 @@ def handle_update(update: dict):
                 result = one_line_summary()
                 share_markup = {
                     "inline_keyboard": [[
-                        {"text": "공유하기", "url": "https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app"},
+                        {"text": "📤 공유하기", "url": "https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app"},
+                        {"text": "📋 전체 브리핑", "callback_data": "/브리핑"},
                     ]]
                 }
                 send(chat_id, result, reply_markup=share_markup)
@@ -1626,12 +1627,17 @@ Max 350 chars. Specific and actionable."""
                         cost = q["price"] if q else 0
                     add_position(chat_id, ticker, qty, cost)
                     total_cost = qty * cost
+                    pos_markup = {"inline_keyboard": [[
+                        {"text": "💼 내 포지션 전체 보기", "callback_data": "/포지션"},
+                        {"text": f"🔍 {ticker} 분석", "callback_data": f"/{ticker}"},
+                    ]]}
                     send(chat_id, (
-                        f"✅ <b>{ticker}</b> 포지션 추가!\n\n"
-                        f"수량: {qty}주 @ ${cost:,.2f}\n"
-                        f"총 투자금액: ${total_cost:,.2f}\n\n"
-                        f"/포지션 — 전체 수익률 확인"
-                    ))
+                        f"✅ <b>{ticker}</b> 포지션 추가 완료!\n"
+                        "━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"수량: <b>{qty}주</b> @ <b>${cost:,.2f}</b>\n"
+                        f"총 투자금액: <b>${total_cost:,.2f}</b>\n\n"
+                        "가격이 변동되면 수익률이 실시간 반영됩니다."
+                    ), reply_markup=pos_markup)
                 except (ValueError, IndexError):
                     send(chat_id, "사용법: /포지션 add NVDA 10 875.50\n(수량 매수가)")
             elif len(parts) >= 3 and parts[1].lower() in ["remove", "삭제", "del"]:
@@ -1642,15 +1648,20 @@ Max 350 chars. Specific and actionable."""
                 positions = get_positions(chat_id)
                 if not positions:
                     send(chat_id, (
-                        "📊 <b>수익률 포트폴리오</b>\n\n"
-                        "매수가와 수량을 입력해서 수익률을 추적하세요!\n\n"
-                        "<b>사용법:</b>\n"
-                        "/포지션 add NVDA 10 875.50\n"
+                        "💼 <b>수익률 추적 포트폴리오</b>\n"
+                        "━━━━━━━━━━━━━━━━━━━\n\n"
+                        "보유 종목의 실시간 수익률을 확인하고\n"
+                        "S&P500과 수익률을 비교해보세요!\n\n"
+                        "<b>추가 방법:</b>\n"
+                        "  <code>/포지션 add NVDA 10 875.50</code>\n"
                         "  → NVDA 10주, 매수가 $875.50\n\n"
-                        "/포지션 add TSLA 5\n"
-                        "  → TSLA 5주, 현재가로 매수가 설정\n\n"
-                        "/포지션 remove NVDA — 포지션 삭제"
-                    ))
+                        "  <code>/포지션 add TSLA 5</code>\n"
+                        "  → 현재가로 매수가 자동 설정\n\n"
+                        "  <code>/포지션 remove NVDA</code> — 삭제"
+                    ), reply_markup={"inline_keyboard": [[
+                        {"text": "📊 예시: NVDA 추가", "callback_data": "/포지션 add NVDA 1"},
+                        {"text": "📈 시황 먼저 보기", "callback_data": "/시황"},
+                    ]]})
                 else:
                     lines = ["<b>📊 내 포지션 수익률</b>\n"]
                     total_invested = 0
