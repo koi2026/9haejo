@@ -206,6 +206,14 @@ def handle_update(update: dict):
             cb_data = cb.get("data", "").strip()
             if cb_data in HELP_TEXTS:
                 send(chat_id, HELP_TEXTS[cb_data])
+            elif cb_data.startswith("__quiz_"):
+                # format: __quiz_{correct_answer}_{chosen}_{is_correct}
+                parts_cb = cb_data.split("_")
+                is_correct = parts_cb[-1] == "True"
+                if is_correct:
+                    send(chat_id, "🎉 정답입니다!\n\n/퀴즈 로 다음 문제에 도전하세요!")
+                else:
+                    send(chat_id, "❌ 틀렸습니다!\n\n/퀴즈 로 다시 도전하거나 힌트를 확인하세요!")
             elif cb_data.startswith("__del_alert_"):
                 ticker = cb_data[len("__del_alert_"):]
                 from alerts import remove_alert, get_alerts
@@ -1413,6 +1421,71 @@ def handle_update(update: dict):
                     lines.append(f"<b>현재 평가금액:</b> ${total_value:,.0f}")
                     lines.append(f"<b>총 수익:</b> {'+' if total_pnl >= 0 else ''}{total_pnl:,.0f}$ ({total_pct:+.1f}%)")
                     send(chat_id, "\n".join(lines))
+
+        # ── /퀴즈 — 주식 지식 퀴즈 ──────────────────────────
+        elif cmd in ["/퀴즈", "/quiz", "/학습"]:
+            import random
+            QUIZZES = [
+                {
+                    "q": "PER(주가수익비율)이 낮을수록 무엇을 의미하나요?",
+                    "options": ["A. 주가가 실적 대비 저평가", "B. 주가가 실적 대비 고평가", "C. 배당률이 높음", "D. 부채가 많음"],
+                    "answer": "A",
+                    "explain": "PER = 주가 / EPS. PER이 낮으면 이익 대비 주가가 싸다는 의미! 단, 업종마다 적정 PER이 다릅니다.",
+                },
+                {
+                    "q": "공포탐욕지수(Fear & Greed Index) 80점은 어떤 시장 상태인가요?",
+                    "options": ["A. 극단적 공포", "B. 중립", "C. 탐욕", "D. 극단적 탐욕"],
+                    "answer": "D",
+                    "explain": "75 이상 = 극단적 탐욕. 시장 과열 신호! 역발상으로 리스크 관리에 주의할 때입니다.",
+                },
+                {
+                    "q": "나스닥 지수에 가장 큰 영향을 주는 섹터는?",
+                    "options": ["A. 에너지", "B. 금융", "C. 기술/IT", "D. 부동산"],
+                    "answer": "C",
+                    "explain": "AAPL, MSFT, NVDA, META, GOOGL 등 기술주가 나스닥의 40% 이상을 차지합니다!",
+                },
+                {
+                    "q": "VIX 지수가 30을 넘으면 시장은?",
+                    "options": ["A. 매우 안정적", "B. 변동성 극심 (공포)", "C. 강세장 확정", "D. 배당 시즌"],
+                    "answer": "B",
+                    "explain": "VIX = 공포지수. 20 이하 안정, 20-30 경계, 30+ 극심한 공포. 2020년 코로나 때 80 돌파!",
+                },
+                {
+                    "q": "USD/KRW 환율이 오르면 한국 수출주에 어떤 영향?",
+                    "options": ["A. 부정적", "B. 중립", "C. 긍정적", "D. 영향 없음"],
+                    "answer": "C",
+                    "explain": "달러가 강해지면 삼성전자, SK하이닉스 등 달러로 수출하는 기업 원화 환산 매출이 증가!",
+                },
+                {
+                    "q": "ETF의 가장 큰 장점은?",
+                    "options": ["A. 고수익 보장", "B. 분산투자 + 낮은 수수료", "C. 배당 없음", "D. 소수 종목 집중"],
+                    "answer": "B",
+                    "explain": "SPY 하나로 S&P500 500개 종목에 투자! 분산효과 + 평균 0.03-0.1% 낮은 수수료가 핵심.",
+                },
+                {
+                    "q": "FOMC란 무엇인가요?",
+                    "options": ["A. 주식 거래소", "B. 연준 공개시장위원회 (금리 결정)", "C. 국제 통화 기금", "D. 나스닥 운영기관"],
+                    "answer": "B",
+                    "explain": "Fed의 연방공개시장위원회. 1년에 8번 열려 기준금리를 결정합니다. 주식시장 최대 이벤트!",
+                },
+                {
+                    "q": "RSI 70 이상은 무엇을 뜻하나요?",
+                    "options": ["A. 과매도 (매수 신호)", "B. 중립 구간", "C. 과매수 (조정 가능)", "D. 급락 신호"],
+                    "answer": "C",
+                    "explain": "RSI는 0-100. 70+ = 과매수, 30 이하 = 과매도. 100이면 최근 며칠 계속 올랐다는 뜻!",
+                },
+            ]
+            quiz = random.choice(QUIZZES)
+            options = quiz["options"]
+            keyboard = {"inline_keyboard": [
+                [{"text": opt, "callback_data": f"__quiz_{quiz['answer']}_{opt[0]}_{quiz['answer'] == opt[0]}"}]
+                for opt in options
+            ]}
+            send(chat_id, (
+                f"<b>🧠 주식 지식 퀴즈</b>\n\n"
+                f"{quiz['q']}\n\n"
+                "<i>아래 버튼을 눌러 정답을 선택하세요!</i>"
+            ), reply_markup=keyboard)
 
         # ── /스크리너 — 통합 스크리너 (모멘텀/배당/52주/ETF) ─
         elif cmd in ["/스크리너", "/screener", "/screen"]:
