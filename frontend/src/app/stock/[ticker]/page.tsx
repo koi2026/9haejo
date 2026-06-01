@@ -83,6 +83,13 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [chartDays, setChartDays] = useState(30);
   const [chartPrices, setChartPrices] = useState<number[]>([]);
   const [chartDates, setChartDates] = useState<string[]>([]);
+  const [technicals, setTechnicals] = useState<{
+    rsi: number; rsi_signal: string;
+    ma20: number; ma50: number | null;
+    above_ma20: boolean; above_ma50: boolean | null;
+    macd: number | null; macd_signal: string;
+    vol_ratio: number; vol_spike: boolean; trend: string;
+  } | null>(null);
 
   useEffect(() => {
     fetch(`${API}/stock/${upperTicker}`)
@@ -97,6 +104,11 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     fetch(`${API}/stock/history/${upperTicker}?days=14`)
       .then(r => r.json())
       .then(d => { if (d.prices?.length) setSparkPrices(d.prices); })
+      .catch(() => {});
+    // 기술 지표
+    fetch(`${API}/stock/${upperTicker}/technicals`)
+      .then(r => r.json())
+      .then(d => { if (!d.error) setTechnicals(d); })
       .catch(() => {});
     // 동종 종목
     fetch(`${API}/stock/${upperTicker}/peers`)
@@ -231,6 +243,61 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 )}
               </div>
             </div>
+
+            {/* Technical Indicators */}
+            {technicals && (
+              <div style={{ padding: "20px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+                <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 16 }}>TECHNICAL INDICATORS</p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                  {/* RSI */}
+                  <div style={{ padding: "14px", borderRadius: 12, background: C.surface, border: `1px solid ${technicals.rsi > 70 ? C.red + "40" : technicals.rsi < 30 ? C.green + "40" : C.border}` }}>
+                    <div style={{ fontSize: 10, color: C.muted, fontFamily: "monospace", letterSpacing: 1, marginBottom: 6 }}>RSI (14)</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "monospace", color: technicals.rsi > 70 ? C.red : technicals.rsi < 30 ? C.green : C.text }}>{technicals.rsi}</div>
+                    <div style={{ fontSize: 11, color: technicals.rsi > 70 ? C.red : technicals.rsi < 30 ? C.green : C.muted, marginTop: 4, fontWeight: 700 }}>
+                      {technicals.rsi_signal}
+                    </div>
+                    {/* RSI bar */}
+                    <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: C.border, position: "relative" }}>
+                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${technicals.rsi}%`, borderRadius: 2, background: technicals.rsi > 70 ? C.red : technicals.rsi < 30 ? C.green : C.blue }} />
+                    </div>
+                  </div>
+                  {/* MACD */}
+                  <div style={{ padding: "14px", borderRadius: 12, background: C.surface, border: `1px solid ${technicals.macd && technicals.macd > 0 ? C.green + "40" : C.red + "30"}` }}>
+                    <div style={{ fontSize: 10, color: C.muted, fontFamily: "monospace", letterSpacing: 1, marginBottom: 6 }}>MACD</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, fontFamily: "monospace", color: technicals.macd && technicals.macd > 0 ? C.green : C.red }}>
+                      {technicals.macd !== null ? (technicals.macd > 0 ? "+" : "") + technicals.macd.toFixed(2) : "N/A"}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: technicals.macd && technicals.macd > 0 ? C.green : C.red, marginTop: 4 }}>{technicals.macd_signal} 신호</div>
+                  </div>
+                  {/* Volume */}
+                  <div style={{ padding: "14px", borderRadius: 12, background: C.surface, border: `1px solid ${technicals.vol_spike ? "#f59e0b40" : C.border}` }}>
+                    <div style={{ fontSize: 10, color: C.muted, fontFamily: "monospace", letterSpacing: 1, marginBottom: 6 }}>거래량 비율</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "monospace", color: technicals.vol_spike ? "#f59e0b" : C.text }}>{technicals.vol_ratio}x</div>
+                    <div style={{ fontSize: 11, color: technicals.vol_spike ? "#f59e0b" : C.muted, fontWeight: 700, marginTop: 4 }}>
+                      {technicals.vol_spike ? "⚡ 거래량 급증" : "평균 수준"}
+                    </div>
+                  </div>
+                </div>
+                {/* MA summary */}
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  <div style={{ padding: "6px 12px", borderRadius: 8, background: technicals.above_ma20 ? `${C.green}15` : `${C.red}15`, border: `1px solid ${technicals.above_ma20 ? C.green + "30" : C.red + "30"}` }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: technicals.above_ma20 ? C.green : C.red }}>
+                      {technicals.above_ma20 ? "▲" : "▼"} MA20 ${technicals.ma20.toFixed(2)}
+                    </span>
+                  </div>
+                  {technicals.ma50 && (
+                    <div style={{ padding: "6px 12px", borderRadius: 8, background: technicals.above_ma50 ? `${C.green}15` : `${C.red}15`, border: `1px solid ${technicals.above_ma50 ? C.green + "30" : C.red + "30"}` }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: technicals.above_ma50 ? C.green : C.red }}>
+                        {technicals.above_ma50 ? "▲" : "▼"} MA50 ${technicals.ma50.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div style={{ padding: "6px 12px", borderRadius: 8, background: `${C.blue}15`, border: `1px solid ${C.blue}30` }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.blue }}>{technicals.trend}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 52-week position bar */}
             {data.week52_low && data.week52_high && data.price && (() => {

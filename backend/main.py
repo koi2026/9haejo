@@ -626,6 +626,78 @@ def market_trending():
     return result
 
 
+@app.get("/stock/{ticker}/technicals")
+def stock_technicals(ticker: str):
+    """RSI·MA·MACD 기술 지표 (14일 데이터 기반, 10분 캐시)"""
+    import yfinance as yf
+    from cache import analysis_cache
+    ticker = ticker.upper().strip()
+    cache_key = f"tech:{ticker}"
+    cached = analysis_cache.get(cache_key)
+    if cached:
+        return cached
+
+    try:
+        hist = yf.Ticker(ticker).history(period="60d", interval="1d")
+        if hist.empty or len(hist) < 20:
+            return {"error": "데이터 부족"}
+        closes = list(hist["Close"])
+        volumes = list(hist["Volume"])
+
+        # RSI (14)
+        gains, losses = [], []
+        for i in range(1, len(closes)):
+            diff = closes[i] - closes[i - 1]
+            gains.append(max(diff, 0))
+            losses.append(max(-diff, 0))
+        avg_gain = sum(gains[-14:]) / 14
+        avg_loss = sum(losses[-14:]) / 14
+        rsi = 100 - (100 / (1 + avg_gain / avg_loss)) if avg_loss else 100
+
+        # MAs
+        ma20 = sum(closes[-20:]) / 20
+        ma50 = sum(closes[-50:]) / 50 if len(closes) >= 50 else None
+        current = closes[-1]
+
+        # MACD (12/26/9 EMA)
+        def ema(prices, n):
+            k = 2 / (n + 1)
+            e = prices[0]
+            for p in prices[1:]:
+                e = p * k + e * (1 - k)
+            return e
+        ema12 = ema(closes[-40:], 12) if len(closes) >= 12 else None
+        ema26 = ema(closes[-40:], 26) if len(closes) >= 26 else None
+        macd = (ema12 - ema26) if (ema12 and ema26) else None
+
+        # Volume vs avg
+        vol_avg = sum(volumes[-20:]) / 20
+        vol_ratio = volumes[-1] / vol_avg if vol_avg else 1
+
+        # Signal strings
+        rsi_signal = "과매수" if rsi > 70 else "과매도" if rsi < 30 else "중립"
+        trend = "상승추세" if current > ma20 else "하락추세"
+
+        result = {
+            "rsi": round(rsi, 1),
+            "rsi_signal": rsi_signal,
+            "ma20": round(ma20, 2),
+            "ma50": round(ma50, 2) if ma50 else None,
+            "current": round(current, 2),
+            "above_ma20": current > ma20,
+            "above_ma50": current > ma50 if ma50 else None,
+            "macd": round(macd, 3) if macd else None,
+            "macd_signal": "매수" if macd and macd > 0 else "매도" if macd and macd < 0 else "중립",
+            "vol_ratio": round(vol_ratio, 2),
+            "vol_spike": vol_ratio > 1.5,
+            "trend": trend,
+        }
+        analysis_cache.set(cache_key, result)
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/calendar/upcoming")
 def calendar_upcoming():
     """주요 경제지표 일정 (프론트 캘린더 위젯용)"""
