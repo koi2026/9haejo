@@ -349,10 +349,11 @@ def handle_update(update: dict):
 
         # ── /브리핑 ──────────────────────────────────
         elif cmd in ["/브리핑", "/briefing"]:
-            # 6시간 내 캐시된 브리핑이 있으면 즉시 발송
             try:
                 from briefing_history import get_latest_briefing
                 from datetime import datetime, timezone
+                from user_settings import get_settings
+                user_lang = get_settings(chat_id).get("language", "ko")
                 cached_date, cached_tweets = get_latest_briefing()
                 use_cache = False
                 if cached_tweets and cached_date:
@@ -362,32 +363,25 @@ def handle_update(update: dict):
                             use_cache = True
                     except Exception:
                         pass
-                from user_settings import get_settings
-                user_lang = get_settings(chat_id).get("language", "ko")
                 if use_cache and user_lang == "ko":
-                    send(chat_id, f"📋 <b>오늘 브리핑 ({cached_date})</b> — 캐시됨")
+                    send(chat_id, f"📋 <b>오늘의 AI 브리핑</b> ({cached_date}) — 캐시에서 즉시 발송")
                     result_tweets = cached_tweets
                 else:
-                    lang_msg = " (영어)" if user_lang == "en" else ""
-                    send(chat_id, f"⏳ AI가 시장을 분석 중입니다{lang_msg}... (30초 정도 소요됩니다)")
+                    lang_msg = " (영어 버전)" if user_lang == "en" else ""
+                    send(chat_id, f"⏳ AI 애널리스트가 시장을 분석 중입니다{lang_msg}...\n약 30초 소요됩니다 ☕")
                     from collector import collect_all
                     from summarizer import summarize
                     data = collect_all()
                     result = summarize(data, language=user_lang)
                     result_tweets = result["tweets"]
-            except Exception:
-                send(chat_id, "⏳ AI가 시장을 분석 중입니다... (30초 정도 소요됩니다)")
-                from collector import collect_all
-                from summarizer import summarize
-                data = collect_all()
-                result = summarize(data)
-                result_tweets = result["tweets"]
-                share_text = "구해조 AI 브리핑 - 매일 8시 미국 증시 분석"
+                share_text = "9haejo AI 브리핑 - 매일 8시 미국 증시 분석"
                 share_url = "https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app&text=" + share_text.replace(" ", "%20")
                 share_markup = {
                     "inline_keyboard": [[
-                        {"text": "공유하기", "url": share_url},
-                        {"text": "웹에서 보기", "url": "https://9haejo.vercel.app"},
+                        {"text": "📤 공유하기", "url": share_url},
+                        {"text": "🌐 웹에서 보기", "url": "https://9haejo.vercel.app/briefings"},
+                    ], [
+                        {"text": "🔔 매일 8시 자동 구독", "callback_data": "/구독"},
                     ]]
                 }
                 for i, tweet in enumerate(result_tweets):

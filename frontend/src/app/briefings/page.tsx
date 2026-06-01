@@ -34,6 +34,12 @@ function BriefingCard({ text, index }: { text: string; index: number }) {
   );
 }
 
+interface SearchResult {
+  date: string;
+  matches: number;
+  preview: string;
+}
+
 function BriefingsContent() {
   const [dates, setDates] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("");
@@ -41,6 +47,10 @@ function BriefingsContent() {
   const [loading, setLoading] = useState(true);
   const [briefingLoading, setBriefingLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchMode, setSearchMode] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -88,13 +98,112 @@ function BriefingsContent() {
     });
   };
 
+  const doSearch = useCallback(async (q: string) => {
+    if (!q.trim()) { setSearchMode(false); setSearchResults([]); return; }
+    setSearchMode(true);
+    setSearching(true);
+    try {
+      const r = await fetch(`${API}/summary/search?q=${encodeURIComponent(q.trim())}`);
+      const d = await r.json();
+      setSearchResults(d.results || []);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim().length >= 2) doSearch(searchQuery);
+      else if (!searchQuery.trim()) { setSearchMode(false); setSearchResults([]); }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, doSearch]);
+
+  const highlightText = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+    return parts.map((p, i) =>
+      p.toLowerCase() === query.toLowerCase()
+        ? <mark key={i} style={{ background: `${C.green}40`, color: C.green, borderRadius: 2, padding: "0 2px" }}>{p}</mark>
+        : p
+    );
+  };
+
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px" }}>
       <div style={{ marginBottom: 36 }}>
         <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>BRIEFING ARCHIVE</p>
         <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, marginBottom: 8 }}>브리핑 아카이브</h1>
-        <p style={{ color: C.muted, fontSize: 15 }}>매일 오전 8시 발송된 AI 브리핑을 날짜별로 확인하세요</p>
+        <p style={{ color: C.muted, fontSize: 15, marginBottom: 20 }}>매일 오전 8시 발송된 AI 브리핑을 날짜별로 확인하세요</p>
+        {/* Search Bar */}
+        <div style={{ position: "relative", maxWidth: 480 }}>
+          <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: C.muted, pointerEvents: "none" }}>🔍</span>
+          <input
+            type="text"
+            placeholder="브리핑 키워드 검색... (예: NVDA, 금리, 반도체)"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              width: "100%", padding: "12px 16px 12px 44px", borderRadius: 12,
+              background: C.card, border: `1px solid ${searchMode ? C.green : C.border}`,
+              color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box",
+              transition: "border-color 0.2s",
+            }}
+          />
+          {searchQuery && (
+            <button onClick={() => { setSearchQuery(""); setSearchMode(false); setSearchResults([]); }}
+              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>
+              ×
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Search Results Mode */}
+      {searchMode && (
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, fontFamily: "monospace" }}>
+            {searching ? "검색 중..." : `검색 결과: "${searchQuery}" — ${searchResults.length}개 브리핑`}
+          </div>
+          {searching ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              {[0,1,2].map(i => <div key={i} style={{ height: 80, flex: 1, borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, animation: "pulse 1.5s ease-in-out infinite" }} />)}
+            </div>
+          ) : searchResults.length === 0 ? (
+            <div style={{ color: C.muted, padding: 40, textAlign: "center", borderRadius: 12, background: C.card, border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+              <div>"{searchQuery}"에 대한 결과가 없습니다</div>
+              <div style={{ fontSize: 13, marginTop: 8 }}>다른 키워드로 검색해보세요 (예: AAPL, 기술주, 연준)</div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {searchResults.map((r) => (
+                <button key={r.date} onClick={() => { setSearchQuery(""); setSearchMode(false); selectDate(r.date); }}
+                  style={{ padding: "16px 20px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = C.green)}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: C.green }}>{r.date}</span>
+                    <span style={{ fontSize: 11, color: C.muted, background: `${C.green}18`, padding: "2px 8px", borderRadius: 10 }}>매칭 {r.matches}건</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: C.muted, margin: 0, lineHeight: 1.5 }}>
+                    {highlightText(r.preview.slice(0, 120) + (r.preview.length > 120 ? "..." : ""), searchQuery)}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ marginTop: 16, borderBottom: `1px solid ${C.border}`, paddingBottom: 16 }}>
+            <button onClick={() => { setSearchQuery(""); setSearchMode(false); setSearchResults([]); }}
+              style={{ fontSize: 13, color: C.muted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+              전체 아카이브 보기
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ color: C.muted, textAlign: "center", padding: 60 }}>로딩 중...</div>
@@ -104,7 +213,7 @@ function BriefingsContent() {
           <div>아직 저장된 브리핑이 없습니다.</div>
           <div style={{ marginTop: 8, fontSize: 13 }}>매일 오전 8시 이후에 확인해주세요.</div>
         </div>
-      ) : (
+      ) : searchMode ? null : (
         <>
           {/* Quick-access pill tabs for recent 7 days */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 28 }}>
