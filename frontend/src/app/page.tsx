@@ -420,6 +420,14 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [hotSearches, setHotSearches] = useState<{ ticker: string; count: number }[]>([]);
+
+  useEffect(() => {
+    fetch(`${API}/market/trending-searches`)
+      .then(r => r.json())
+      .then(d => { if (d.tickers?.length) setHotSearches(d.tickers); })
+      .catch(() => {});
+  }, []);
 
   const suggestions = query.length >= 1
     ? AUTOCOMPLETE_LIST.filter(s =>
@@ -508,7 +516,7 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
         </form>
 
         {/* Popular tickers */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
           {POPULAR_TICKERS.map(t => (
             <button key={t} onClick={() => { setQuery(t); search(t); }} style={{
               padding: "4px 10px", borderRadius: 6, background: C.card, border: `1px solid ${C.border}`,
@@ -516,6 +524,21 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
             }}>{t}</button>
           ))}
         </div>
+        {/* Hot searches */}
+        {hotSearches.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 10, color: "#f59e0b", fontFamily: "monospace", letterSpacing: 2 }}>🔥 HOT</span>
+            {hotSearches.map((h, i) => (
+              <button key={h.ticker} onClick={() => { setQuery(h.ticker); search(h.ticker); }} style={{
+                padding: "3px 10px", borderRadius: 6, background: `#f59e0b${i === 0 ? "20" : "10"}`,
+                border: `1px solid #f59e0b${i === 0 ? "50" : "25"}`,
+                color: "#f59e0b", fontSize: 11, fontFamily: "monospace", cursor: "pointer", fontWeight: 700,
+              }}>
+                {i + 1}. {h.ticker}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Result */}
         {error && <div style={{ padding: 16, borderRadius: 12, background: `${C.red}10`, border: `1px solid ${C.red}30`, color: C.red, fontSize: 14 }}>{error}</div>}
@@ -665,6 +688,7 @@ export default function Home() {
       .then(r => r.json())
       .then(d => { if (d.tickers?.length) setTrending(d.tickers); })
       .catch(() => {});
+
 
     // 지수 + 빅테크 스파크라인 (7일 데이터)
     const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "NVDA": "NVDA", "TSLA": "TSLA", "AAPL": "AAPL", "MSFT": "MSFT", "META": "META", "AMZN": "AMZN" };

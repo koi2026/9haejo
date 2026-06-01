@@ -1535,6 +1535,14 @@ def handle_update(update: dict):
             ticker = resolve_ticker(text) or (text.upper() if text.isalpha() and len(text) <= 6 else None)
             display = ticker or text
 
+            # 검색 카운터 증가
+            if ticker:
+                try:
+                    from search_counter import increment as _inc
+                    _inc(ticker)
+                except Exception:
+                    pass
+
             send(chat_id, f"🔍 <b>{display}</b> 분석 중... (10~20초 소요)")
             try:
                 from stock_analyzer import analyze_stock, get_price_chart
