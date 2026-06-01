@@ -711,7 +711,7 @@ export default function Home() {
   };
 
   return (
-    <div className={isDark ? "" : "light-mode"} style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
+    <div className={isDark ? "" : "light-mode"} style={{ background: isDark ? C.bg : "#f0f4ff", minHeight: "100vh", color: isDark ? C.text : "#0d0d1a", transition: "background 0.3s, color 0.3s" }}>
 
       {/* NAV */}
       <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(7,7,15,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}` }}>
@@ -1286,8 +1286,43 @@ export default function Home() {
         @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 6px #00d97e} 50%{opacity:.4;box-shadow:none} }
         @keyframes marquee { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
         @keyframes needleSpin { from{transform-origin:54px 68px;transform:rotate(-90deg)} to{transform-origin:54px 68px;transform:rotate(0deg)} }
-        .light-mode { filter: invert(1) hue-rotate(180deg); }
-        .light-mode img, .light-mode video, .light-mode svg { filter: invert(1) hue-rotate(180deg); }
+        /* Light mode overrides */
+        .light-mode {
+          background: #f0f4ff !important;
+          color: #0d0d1a !important;
+        }
+        .light-mode nav {
+          background: rgba(240,244,255,0.95) !important;
+          border-bottom-color: #d0d4e8 !important;
+        }
+        .light-mode [style*="background: #07070f"],
+        .light-mode [style*="background:#07070f"] {
+          background: #f0f4ff !important;
+        }
+        .light-mode [style*="background: #0d0d1a"],
+        .light-mode [style*="background:#0d0d1a"] {
+          background: #e8ecf8 !important;
+        }
+        .light-mode [style*="background: #111120"],
+        .light-mode [style*="background:#111120"] {
+          background: #ffffff !important;
+        }
+        .light-mode [style*="color: #e8e8f0"],
+        .light-mode [style*="color:#e8e8f0"] {
+          color: #0d0d1a !important;
+        }
+        .light-mode [style*="color: #6b6b80"],
+        .light-mode [style*="color:#6b6b80"] {
+          color: #555570 !important;
+        }
+        .light-mode [style*="border: 1px solid #1a1a2e"],
+        .light-mode [style*="border:1px solid #1a1a2e"] {
+          border-color: #c8cce0 !important;
+        }
+        .light-mode code, .light-mode pre {
+          background: #e0e4f5 !important;
+          color: #0d0d1a !important;
+        }
         .ticker-item:hover { background: rgba(255,255,255,0.05) !important; }
         @media (max-width: 768px) { body { padding-bottom: 68px; } }
       `}</style>
