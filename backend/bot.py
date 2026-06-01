@@ -1264,6 +1264,132 @@ def handle_update(update: dict):
                 logger.error("options error: %s", e)
                 send(chat_id, f"옵션 데이터 조회 중 오류: {type(e).__name__}")
 
+        # ── /포지션 — 수익률 계산 포트폴리오 ──────────────
+        elif cmd in ["/포지션", "/position", "/수익"]:
+            parts = text.split()
+            from portfolio_positions import add_position, remove_position, get_positions
+            from collector import yf_quote
+
+            if len(parts) >= 4 and parts[1].lower() in ["add", "추가"]:
+                # /포지션 add NVDA 10 875.50
+                try:
+                    ticker = parts[2].upper()
+                    qty = float(parts[3])
+                    cost = float(parts[4]) if len(parts) >= 5 else None
+                    if cost is None:
+                        # Use current price as cost basis
+                        q = yf_quote(ticker)
+                        cost = q["price"] if q else 0
+                    add_position(chat_id, ticker, qty, cost)
+                    total_cost = qty * cost
+                    send(chat_id, (
+                        f"✅ <b>{ticker}</b> 포지션 추가!\n\n"
+                        f"수량: {qty}주 @ ${cost:,.2f}\n"
+                        f"총 투자금액: ${total_cost:,.2f}\n\n"
+                        f"/포지션 — 전체 수익률 확인"
+                    ))
+                except (ValueError, IndexError):
+                    send(chat_id, "사용법: /포지션 add NVDA 10 875.50\n(수량 매수가)")
+            elif len(parts) >= 3 and parts[1].lower() in ["remove", "삭제", "del"]:
+                ticker = parts[2].upper()
+                remove_position(chat_id, ticker)
+                send(chat_id, f"🗑 <b>{ticker}</b> 포지션 삭제됨.")
+            else:
+                positions = get_positions(chat_id)
+                if not positions:
+                    send(chat_id, (
+                        "📊 <b>수익률 포트폴리오</b>\n\n"
+                        "매수가와 수량을 입력해서 수익률을 추적하세요!\n\n"
+                        "<b>사용법:</b>\n"
+                        "/포지션 add NVDA 10 875.50\n"
+                        "  → NVDA 10주, 매수가 $875.50\n\n"
+                        "/포지션 add TSLA 5\n"
+                        "  → TSLA 5주, 현재가로 매수가 설정\n\n"
+                        "/포지션 remove NVDA — 포지션 삭제"
+                    ))
+                else:
+                    lines = ["<b>📊 내 포지션 수익률</b>\n"]
+                    total_invested = 0
+                    total_value = 0
+                    for ticker, pos in positions.items():
+                        q = yf_quote(ticker)
+                        if not q:
+                            lines.append(f"• {ticker}: 조회 실패")
+                            continue
+                        qty = pos["qty"]
+                        cost = pos["cost_basis"]
+                        current = q["price"]
+                        invested = qty * cost
+                        value = qty * current
+                        pnl = value - invested
+                        pnl_pct = (pnl / invested * 100) if invested else 0
+                        total_invested += invested
+                        total_value += value
+                        arrow = "▲" if pnl >= 0 else "▼"
+                        lines.append(
+                            f"• <b>{ticker}</b> {qty}주 @ ${cost:,.2f}\n"
+                            f"  현재 ${current:,.2f} {arrow}{abs(pnl_pct):.1f}%"
+                            f"  ({'+' if pnl >= 0 else ''}{pnl:,.0f}$)"
+                        )
+                    total_pnl = total_value - total_invested
+                    total_pct = (total_pnl / total_invested * 100) if total_invested else 0
+                    lines.append(f"\n<b>총 투자금액:</b> ${total_invested:,.0f}")
+                    lines.append(f"<b>현재 평가금액:</b> ${total_value:,.0f}")
+                    lines.append(f"<b>총 수익:</b> {'+' if total_pnl >= 0 else ''}{total_pnl:,.0f}$ ({total_pct:+.1f}%)")
+                    send(chat_id, "\n".join(lines))
+
+        # ── /스크리너 — 통합 스크리너 (모멘텀/배당/52주/ETF) ─
+        elif cmd in ["/스크리너", "/screener", "/screen"]:
+            parts = text.split()
+            mode = parts[1].lower() if len(parts) > 1 else ""
+            if mode in ["모멘텀", "momentum"]:
+                send(chat_id, "🚀 모멘텀 스크리너 분석 중...")
+                try:
+                    from stock_analyzer import analyze_momentum
+                    send(chat_id, analyze_momentum())
+                except Exception as e:
+                    send(chat_id, f"오류: {e}")
+            elif mode in ["배당", "dividend"]:
+                send(chat_id, "💰 배당주 분석 중...")
+                try:
+                    from stock_analyzer import analyze_dividend_stocks
+                    send(chat_id, analyze_dividend_stocks())
+                except Exception as e:
+                    send(chat_id, f"오류: {e}")
+            elif mode in ["52주", "52week", "고저가"]:
+                send(chat_id, "📊 52주 고저가 스캔 중...")
+                try:
+                    from stock_analyzer import scan_52week
+                    send(chat_id, scan_52week())
+                except Exception as e:
+                    send(chat_id, f"오류: {e}")
+            elif mode in ["etf", "ETF"]:
+                send(chat_id, "📦 ETF 분석 중...")
+                try:
+                    from stock_analyzer import analyze_etfs
+                    send(chat_id, analyze_etfs())
+                except Exception as e:
+                    send(chat_id, f"오류: {e}")
+            else:
+                # Show menu with inline buttons
+                menu = {
+                    "inline_keyboard": [[
+                        {"text": "🚀 모멘텀", "callback_data": "/스크리너 모멘텀"},
+                        {"text": "💰 배당주", "callback_data": "/스크리너 배당"},
+                    ], [
+                        {"text": "📊 52주 고저가", "callback_data": "/스크리너 52주"},
+                        {"text": "📦 ETF 분석", "callback_data": "/스크리너 ETF"},
+                    ]]
+                }
+                send(chat_id, (
+                    "<b>🔍 통합 스크리너</b>\n\n"
+                    "원하는 스크리너를 선택하세요:\n\n"
+                    "🚀 <b>모멘텀</b> — RSI+MA 기반 강세 종목\n"
+                    "💰 <b>배당</b> — 고배당 TOP10 종목\n"
+                    "📊 <b>52주 고저가</b> — 신고가/신저가 근접 종목\n"
+                    "📦 <b>ETF</b> — 주요 ETF 성과 분석"
+                ), reply_markup=menu)
+
         elif cmd in ["/실시간", "/live", "/추적"]:
             parts = text.split()
             sub_cmd = parts[1].lower() if len(parts) > 1 else ""
