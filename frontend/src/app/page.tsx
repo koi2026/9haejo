@@ -729,12 +729,52 @@ function NewsSection({ news, getSentInfo }: { news: { title: string; source: str
   );
 }
 
+const TRANSLATIONS = {
+  ko: {
+    siteName: "구해조",
+    subscribe: "무료 구독하기",
+    heroTag: "AI 주식 브리핑 서비스",
+    heroTitle: "월가를 한눈에",
+    heroSub: "매일 오전 8시, Claude AI가 분석한 미국 증시 핵심 브리핑을 텔레그램으로 받아보세요.",
+    cta: "지금 구독하기 — 무료",
+    ctaSub: "신용카드 불필요 · 언제든 해지 가능",
+    subscribers: "구독자",
+    briefings: "AI 브리핑",
+    briefingLabel: "오늘의 AI 브리핑",
+    footerTag: "미국 증시 AI 브리핑 서비스.",
+    langToggle: "EN",
+  },
+  en: {
+    siteName: "9haejo",
+    subscribe: "Subscribe Free",
+    heroTag: "AI Stock Briefing Service",
+    heroTitle: "Wall Street at a Glance",
+    heroSub: "Every morning at 8AM KST, receive Claude AI's analysis of US markets via Telegram.",
+    cta: "Subscribe Now — Free",
+    ctaSub: "No credit card · Cancel anytime",
+    subscribers: "Subscribers",
+    briefings: "AI Briefings",
+    briefingLabel: "Today's AI Briefing",
+    footerTag: "US Stock Market AI Briefing Service.",
+    langToggle: "KO",
+  },
+};
+
 export default function Home() {
   const [chatId, setChatId] = useState("");
   const [subState, setSubState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [subMsg, setSubMsg] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [isDark, setIsDark] = useState(true);
+  const [lang, setLang] = useState<"ko" | "en">("ko");
+  const T = TRANSLATIONS[lang];
+  const toggleLang = () => {
+    setLang(p => {
+      const next = p === "ko" ? "en" : "ko";
+      localStorage.setItem("lang", next);
+      return next;
+    });
+  };
   const toggleTheme = () => {
     setIsDark(p => {
       const next = !p;
@@ -770,6 +810,8 @@ export default function Home() {
     window.addEventListener("resize", checkMobile);
     const saved = localStorage.getItem("theme");
     if (saved === "light") setIsDark(false);
+    const savedLang = localStorage.getItem("lang");
+    if (savedLang === "en") setLang("en");
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
@@ -883,12 +925,15 @@ export default function Home() {
               </span>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={toggleLang} style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", letterSpacing: 1 }}>
+              {T.langToggle}
+            </button>
             <button onClick={toggleTheme} style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 14, cursor: "pointer" }}>
               {isDark ? "☀️" : "🌙"}
             </button>
             <a href="#subscribe" style={{ padding: "8px 18px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-              무료 구독하기
+              {T.subscribe}
             </a>
           </div>
         </div>
@@ -943,13 +988,16 @@ export default function Home() {
           </div>
 
           <h1 style={{ textAlign: "center", fontSize: "clamp(36px,7vw,72px)", fontWeight: 900, lineHeight: 1.1, letterSpacing: "-2px", marginBottom: 24 }}>
-            <span style={{ color: C.text }}>월가의 밤,</span><br />
-            <span style={{ background: C.grad, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>당신의 아침에</span>
+            <span style={{ color: C.text }}>{lang === "ko" ? "월가의 밤," : "Wall Street's Night,"}</span><br />
+            <span style={{ background: C.grad, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>{lang === "ko" ? "당신의 아침에" : "Your Morning"}</span>
           </h1>
 
           <p style={{ textAlign: "center", fontSize: 18, color: C.muted, lineHeight: 1.7, maxWidth: 520, margin: "0 auto 44px" }}>
-            미국 증시 마감 후 Claude AI가 분석하고,<br />
-            <strong style={{ color: C.text }}>매일 오전 8시</strong> 텔레그램으로 브리핑을 전달합니다.
+            {lang === "ko" ? (
+              <>미국 증시 마감 후 Claude AI가 분석하고,<br /><strong style={{ color: C.text }}>매일 오전 8시</strong> 텔레그램으로 브리핑을 전달합니다.</>
+            ) : (
+              <>After US market close, Claude AI analyzes everything.<br />Delivered to Telegram every morning at <strong style={{ color: C.text }}>8AM KST</strong>.</>
+            )}
           </p>
 
           <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 60, flexWrap: "wrap" }}>
@@ -1130,7 +1178,7 @@ export default function Home() {
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ marginBottom: 32 }}>
             <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>TODAY'S BRIEFING</p>
-            <h2 style={{ fontSize: 28, fontWeight: 900, color: C.text }}>오늘의 AI 브리핑</h2>
+            <h2 style={{ fontSize: 28, fontWeight: 900, color: C.text }}>{T.briefingLabel}</h2>
             <p style={{ color: C.muted, marginTop: 6, fontSize: 14 }}>매일 아침 8시 전송되는 실제 브리핑 내용입니다</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
@@ -1445,8 +1493,8 @@ export default function Home() {
                 <span style={{ fontWeight: 800, fontSize: 16, color: C.text }}>구해조</span>
               </div>
               <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, maxWidth: 260 }}>
-                미국 증시 AI 브리핑 서비스.<br />
-                Claude AI 기반, 매일 오전 8시 KST.
+                {T.footerTag}<br />
+                {lang === "ko" ? "Claude AI 기반, 매일 오전 8시 KST." : "Powered by Claude AI, every 8AM KST."}
               </p>
             </div>
             <div style={{ display: "flex", gap: 40, flexWrap: "wrap" }}>
