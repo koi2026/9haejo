@@ -1058,14 +1058,60 @@ def handle_update(update: dict):
 
         # ── /주간 ────────────────────────────────────
         elif cmd in ["/주간", "/weekly"]:
-            send(chat_id, "📅 이번 주 성적표 조회 중...")
-            try:
-                from stock_analyzer import weekly_summary
-                result = weekly_summary()
-                send(chat_id, result)
-            except Exception as e:
-                logger.error("weekly error: %s", e)
-                send(chat_id, "주간 요약 중 오류가 발생했어요.")
+            parts = text.split()
+            if len(parts) >= 2:
+                # 종목별 주간 분석
+                from stock_analyzer import resolve_ticker, claude_call
+                ticker = resolve_ticker(parts[1]) or parts[1].upper()
+                send(chat_id, f"📅 <b>{ticker}</b> 주간 성과 분석 중...")
+                try:
+                    import yfinance as yf
+                    t = yf.Ticker(ticker)
+                    hist = t.history(period="7d")
+                    info = t.info or {}
+                    if hist.empty:
+                        send(chat_id, f"{ticker} 데이터를 찾을 수 없습니다.")
+                    else:
+                        start_price = float(hist["Close"].iloc[0])
+                        end_price = float(hist["Close"].iloc[-1])
+                        week_pct = (end_price - start_price) / start_price * 100
+                        high = float(hist["High"].max())
+                        low = float(hist["Low"].min())
+                        avg_vol = int(hist["Volume"].mean())
+                        name = info.get("shortName", ticker)
+                        prompt = f"""{ticker} ({name}) weekly performance for Korean investors:
+7-day change: {week_pct:+.2f}% (${start_price:.2f} -> ${end_price:.2f})
+Week high: ${high:.2f} | Week low: ${low:.2f}
+Avg daily volume: {avg_vol:,}
+Write in Korean: (1) 이번 주 주요 움직임 요약, (2) 기술적 분석 (지지/저항 수준), (3) 다음 주 핵심 주목 포인트
+Max 350 chars. Specific and actionable."""
+                        ai = claude_call(prompt, max_tokens=400)
+                        week_arrow = "▲" if week_pct >= 0 else "▼"
+                        msg = (
+                            f"<b>📅 {ticker} 주간 성과 리포트</b>\n\n"
+                            f"<b>가격</b>: ${start_price:.2f} → ${end_price:.2f} {week_arrow}{week_pct:+.2f}%\n"
+                            f"<b>주간 고가</b>: ${high:.2f}\n"
+                            f"<b>주간 저가</b>: ${low:.2f}\n"
+                            f"<b>평균 거래량</b>: {avg_vol/1e6:.1f}M\n\n"
+                            + ai
+                        )
+                        markup = {"inline_keyboard": [[
+                            {"text": f"🔍 {ticker} 상세 분석", "callback_data": f"/{ticker}"},
+                            {"text": "📊 전체 주간", "callback_data": "/주간"},
+                        ]]}
+                        send(chat_id, msg, reply_markup=markup)
+                except Exception as e:
+                    logger.error("weekly stock error: %s", e)
+                    send(chat_id, f"{ticker} 주간 분석 중 오류가 발생했어요.")
+            else:
+                send(chat_id, "📅 이번 주 시장 성적표 조회 중...")
+                try:
+                    from stock_analyzer import weekly_summary
+                    result = weekly_summary()
+                    send(chat_id, result)
+                except Exception as e:
+                    logger.error("weekly error: %s", e)
+                    send(chat_id, "주간 요약 중 오류가 발생했어요.")
 
         # ── /매크로 ──────────────────────────────────
         elif cmd in ["/매크로", "/macro"]:

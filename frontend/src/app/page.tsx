@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
@@ -614,8 +615,15 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
                 </div>
               )}
             </div>
-            <div style={{ padding: "10px 14px", borderRadius: 10, background: "#08081a", fontSize: 13, color: C.muted }}>
-              💡 <span style={{ color: C.text }}>@goohaejo_bot</span> 에서 <code style={{ background: "#1a1a2e", padding: "2px 6px", borderRadius: 4, color: C.green }}>{result.ticker}</code> 를 입력하면 AI 분석 리포트를 받을 수 있습니다.
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Link href={`/stock/${result.ticker}`}
+                style={{ flex: 1, minWidth: 140, padding: "10px 16px", borderRadius: 10, background: `${C.green}15`, border: `1px solid ${C.green}30`, color: C.green, fontSize: 13, fontWeight: 700, textDecoration: "none", textAlign: "center" }}>
+                🔍 상세 AI 분석 보기
+              </Link>
+              <a href={`https://t.me/goohaejo_bot`} target="_blank" rel="noopener noreferrer"
+                style={{ flex: 1, minWidth: 140, padding: "10px 16px", borderRadius: 10, background: "#08081a", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 600, textDecoration: "none", textAlign: "center" }}>
+                📱 텔레그램에서 분석
+              </a>
             </div>
           </div>
         )}
