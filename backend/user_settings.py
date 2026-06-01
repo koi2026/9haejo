@@ -15,6 +15,7 @@ DEFAULTS = {
     "extra_alerts": [],  # 추가 알림 시간 ["14:00", "23:00"]
     "watchlist_briefing": True,  # 브리핑 시 watchlist 포함
     "alarm_time": None,  # 개인 시황 알람 시각 (KST HH:MM)
+    "language": "ko",  # 브리핑 언어: "ko" or "en"
 }
 
 
