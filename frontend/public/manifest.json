@@ -1,26 +1,54 @@
 {
   "name": "구해조 - 미국 증시 AI 브리핑",
   "short_name": "구해조",
-  "description": "매일 오전 8시 미국 증시 AI 브리핑을 텔레그램으로",
-  "start_url": "/",
+  "description": "Claude AI가 분석한 미국 증시 핵심 브리핑을 매일 오전 8시 텔레그램으로 받아보세요.",
+  "start_url": "/?source=pwa",
   "display": "standalone",
   "background_color": "#07070f",
   "theme_color": "#00d97e",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "news"],
+  "lang": "ko",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "categories": ["finance", "news"],
-  "lang": "ko"
+  "shortcuts": [
+    {
+      "name": "오늘 브리핑",
+      "short_name": "브리핑",
+      "description": "오늘의 AI 증시 브리핑 보기",
+      "url": "/briefings"
+    },
+    {
+      "name": "월가 뉴스",
+      "short_name": "뉴스",
+      "description": "월가 AI 뉴스 분석",
+      "url": "/news"
+    },
+    {
+      "name": "종목 비교",
+      "short_name": "비교",
+      "description": "두 종목 나란히 AI 비교",
+      "url": "/compare"
+    }
+  ],
+  "prefer_related_applications": false
 }

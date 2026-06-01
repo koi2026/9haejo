@@ -482,6 +482,16 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
     }
   };
 
+  // 자동 검색: 정확한 티커(2~6자 알파) 입력 시 600ms 후 자동 조회
+  useEffect(() => {
+    const q = query.trim();
+    if (/^[A-Z]{2,6}$/.test(q)) {
+      const t = setTimeout(() => search(q), 600);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line
+  }, [query]);
+
   const up = result ? result.change_pct >= 0 : null;
 
   return (
@@ -617,12 +627,16 @@ function StockSearchWidget({ isMobile }: { isMobile: boolean }) {
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Link href={`/stock/${result.ticker}`}
-                style={{ flex: 1, minWidth: 140, padding: "10px 16px", borderRadius: 10, background: `${C.green}15`, border: `1px solid ${C.green}30`, color: C.green, fontSize: 13, fontWeight: 700, textDecoration: "none", textAlign: "center" }}>
-                🔍 상세 AI 분석 보기
+                style={{ flex: 1, minWidth: 120, padding: "10px 16px", borderRadius: 10, background: `${C.green}15`, border: `1px solid ${C.green}30`, color: C.green, fontSize: 13, fontWeight: 700, textDecoration: "none", textAlign: "center" }}>
+                🔍 AI 심층 분석
+              </Link>
+              <Link href={`/compare?a=${result.ticker}&b=SPY`}
+                style={{ flex: 1, minWidth: 100, padding: "10px 16px", borderRadius: 10, background: `${C.blue}10`, border: `1px solid ${C.blue}30`, color: C.blue, fontSize: 13, fontWeight: 700, textDecoration: "none", textAlign: "center" }}>
+                ⚖️ 비교
               </Link>
               <a href={`https://t.me/goohaejo_bot`} target="_blank" rel="noopener noreferrer"
-                style={{ flex: 1, minWidth: 140, padding: "10px 16px", borderRadius: 10, background: "#08081a", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 600, textDecoration: "none", textAlign: "center" }}>
-                📱 텔레그램에서 분석
+                style={{ flex: 1, minWidth: 100, padding: "10px 16px", borderRadius: 10, background: "#08081a", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 600, textDecoration: "none", textAlign: "center" }}>
+                🤖 봇 분석
               </a>
             </div>
           </div>
