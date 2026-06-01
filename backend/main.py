@@ -772,6 +772,35 @@ def market_live():
     return {"indices": indices, "fx": fx, "fear_greed": fear_greed, "big_stocks": big_stocks, "sectors": sectors}
 
 
+@app.get("/compare/{ticker_a}/{ticker_b}")
+def compare_stocks_api(ticker_a: str, ticker_b: str):
+    """두 종목 비교 + AI 판정"""
+    from collector import yf_quote
+    from stock_analyzer import claude_call
+    a = ticker_a.upper()
+    b = ticker_b.upper()
+    qa = yf_quote(a) or {}
+    qb = yf_quote(b) or {}
+    if not qa or not qb:
+        return {"verdict": ""}
+    def _s(q, k, default=None):
+        return q.get(k, default)
+    prompt = (
+        f"Compare {a} vs {b} for retail investors. Data:\n"
+        f"{a}: price=${_s(qa,'price',0):.2f}, change={_s(qa,'change_pct',0):+.2f}%, "
+        f"mktcap={_s(qa,'market_cap',0):.0f}, pe={_s(qa,'pe','N/A')}\n"
+        f"{b}: price=${_s(qb,'price',0):.2f}, change={_s(qb,'change_pct',0):+.2f}%, "
+        f"mktcap={_s(qb,'market_cap',0):.0f}, pe={_s(qb,'pe','N/A')}\n\n"
+        f"Write a concise Korean comparison (3-4 sentences). State which is better for short-term and which for long-term. "
+        f"Be direct and specific. No disclaimers."
+    )
+    try:
+        verdict = claude_call("claude-haiku-4-5", prompt, max_tokens=300).strip()
+    except Exception:
+        verdict = ""
+    return {"ticker_a": a, "ticker_b": b, "verdict": verdict}
+
+
 @app.get("/market/trending-searches")
 def trending_searches():
     """가장 많이 검색된 종목 TOP5"""

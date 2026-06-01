@@ -203,6 +203,16 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
 
             {/* CTA */}
             <div style={{ marginTop: 24, textAlign: "center" }}>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 16 }}>
+                <Link href={`/compare?a=${upperTicker}&b=SPY`}
+                  style={{ padding: "10px 20px", borderRadius: 10, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+                  ⚖️ {upperTicker} vs SPY 비교
+                </Link>
+                <Link href="/compare"
+                  style={{ padding: "10px 20px", borderRadius: 10, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+                  ⚖️ 다른 종목과 비교
+                </Link>
+              </div>
               <p style={{ fontSize: 14, color: C.muted, marginBottom: 16 }}>
                 텔레그램에서 실시간으로 분석하려면:
               </p>
