@@ -248,9 +248,27 @@ def handle_update(update: dict):
                 parts_cb = cb_data.split("_")
                 is_correct = parts_cb[-1] == "True"
                 if is_correct:
-                    send(chat_id, "🎉 정답입니다!\n\n/퀴즈 로 다음 문제에 도전하세요!")
+                    quiz_markup = {"inline_keyboard": [[
+                        {"text": "➡️ 다음 문제", "callback_data": "/퀴즈"},
+                        {"text": "📊 오늘 시황", "callback_data": "/시황"},
+                    ]]}
+                    send(chat_id, (
+                        "🎉 <b>정답입니다!</b>\n"
+                        "━━━━━━━━━━━━━━━━━━━\n\n"
+                        "훌륭해요! 투자 지식이 쌓이고 있어요.\n"
+                        "실전에서도 빛을 발할 거예요 💪"
+                    ), reply_markup=quiz_markup)
                 else:
-                    send(chat_id, "❌ 틀렸습니다!\n\n/퀴즈 로 다시 도전하거나 힌트를 확인하세요!")
+                    quiz_markup = {"inline_keyboard": [[
+                        {"text": "🔄 다시 도전", "callback_data": "/퀴즈"},
+                        {"text": "🤖 AI 브리핑", "callback_data": "/브리핑"},
+                    ]]}
+                    send(chat_id, (
+                        "❌ <b>아쉽네요!</b>\n"
+                        "━━━━━━━━━━━━━━━━━━━\n\n"
+                        "틀린 문제가 실력을 키워줍니다.\n"
+                        "다시 도전해보세요! 🎯"
+                    ), reply_markup=quiz_markup)
             elif cb_data.startswith("__del_alert_"):
                 ticker = cb_data[len("__del_alert_"):]
                 from alerts import remove_alert, get_alerts
@@ -483,11 +501,21 @@ def handle_update(update: dict):
                     except Exception:
                         pass
                 if use_cache and user_lang == "ko":
-                    send(chat_id, f"📋 <b>오늘의 AI 브리핑</b> ({cached_date}) — 캐시에서 즉시 발송")
+                    send(chat_id, (
+                        f"📋 <b>오늘의 AI 브리핑</b> — {cached_date}\n"
+                        "━━━━━━━━━━━━━━━━━━━\n\n"
+                        "⚡ 캐시에서 즉시 발송합니다!"
+                    ))
                     result_tweets = cached_tweets
                 else:
-                    lang_msg = " (영어 버전)" if user_lang == "en" else ""
-                    send(chat_id, f"⏳ AI 애널리스트가 시장을 분석 중입니다{lang_msg}...\n약 30초 소요됩니다 ☕")
+                    lang_msg = " (English)" if user_lang == "en" else ""
+                    send(chat_id, (
+                        f"🤖 <b>AI 브리핑 생성 중{lang_msg}...</b>\n"
+                        "━━━━━━━━━━━━━━━━━━━\n\n"
+                        "월가 전문 애널리스트 수준의 분석을\n"
+                        "Claude AI가 30초 만에 정리합니다. ☕\n\n"
+                        "<i>잠깐 기다려주세요!</i>"
+                    ))
                     from collector import collect_all
                     from summarizer import summarize
                     data = collect_all()
@@ -674,11 +702,21 @@ def handle_update(update: dict):
                 ok = add_alert(chat_id, ticker, target, direction)
                 if ok:
                     dir_text = "이하" if direction == "below" else "이상"
+                    dir_icon = "📉" if direction == "below" else "📈"
+                    # 현재가 조회
+                    try:
+                        from collector import yf_quote as _yq
+                        _q = _yq(ticker)
+                        cur_price = f"  (현재가: ${_q['price']:,.2f})" if _q else ""
+                    except Exception:
+                        cur_price = ""
                     send(chat_id, (
-                        f"✅ <b>알림 등록 완료!</b>\n\n"
-                        f"{ticker}이(가) ${target:,.0f} {dir_text}이 되면\n"
-                        f"즉시 텔레그램으로 알려드립니다.\n"
-                        f"(5분마다 체크)"
+                        f"🔔 <b>알림 등록 완료!</b>\n"
+                        "━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"{dir_icon} <b>{ticker}</b> ${target:,.2f} {dir_text}{cur_price}\n\n"
+                        "5분마다 자동 체크 후 조건 달성 시\n"
+                        "AI 코멘트와 함께 즉시 알려드려요!\n\n"
+                        f"<i>최대 5개 · /알림 으로 목록 확인</i>"
                     ))
                 else:
                     send(chat_id, "알림은 최대 5개까지 등록할 수 있습니다.\n/알림 삭제 NVDA 로 기존 알림을 삭제해주세요.")
@@ -699,9 +737,22 @@ def handle_update(update: dict):
                 if not tweets:
                     send(chat_id, "아직 저장된 브리핑이 없어요.\n/브리핑 으로 지금 브리핑을 받아보세요!")
                 else:
-                    send(chat_id, f"📅 <b>{date} 브리핑</b>")
-                    for tweet in tweets:
-                        send(chat_id, tweet)
+                    share_markup2 = {
+                        "inline_keyboard": [[
+                            {"text": "🌐 웹에서 보기", "url": f"https://9haejo.vercel.app/briefings?date={date}"},
+                            {"text": "🔔 매일 구독", "callback_data": "/구독"},
+                        ]]
+                    }
+                    send(chat_id, (
+                        f"📅 <b>{date} AI 브리핑</b>\n"
+                        "━━━━━━━━━━━━━━━━━━━\n\n"
+                        "Claude AI가 분석한 월가 핵심 요약입니다."
+                    ))
+                    for i, tweet in enumerate(tweets):
+                        if i == len(tweets) - 1:
+                            send(chat_id, tweet, reply_markup=share_markup2)
+                        else:
+                            send(chat_id, tweet)
             except Exception as e:
                 logger.error("yesterday error: %s", e)
                 send(chat_id, "브리핑 히스토리 조회 중 오류가 발생했어요.")
@@ -2141,9 +2192,16 @@ def _handle_watchlist(chat_id: str, parts: list):
             user_wl.append(ticker)
             wl_db[chat_id] = user_wl
             wl_path.write_text(json.dumps(wl_db, ensure_ascii=False, indent=2), encoding="utf-8")
-            send(chat_id, f"✅ {ticker} 관심종목에 추가했습니다.\n현재 목록: {', '.join(user_wl)}")
+            markup_wl = {"inline_keyboard": [[
+                {"text": f"🔍 {ticker} 분석", "callback_data": f"/{ticker}"},
+                {"text": "📋 내 목록 보기", "callback_data": "/watchlist"},
+            ]]}
+            send(chat_id, (
+                f"⭐ <b>{ticker}</b> 관심종목에 추가했습니다!\n"
+                f"현재 {len(user_wl)}개 추적 중: {', '.join(user_wl)}"
+            ), reply_markup=markup_wl)
         else:
-            send(chat_id, f"{ticker}은 이미 관심종목에 있습니다.")
+            send(chat_id, f"{ticker}은 이미 관심종목에 있어요.\n/watchlist 로 현재 목록을 확인해보세요.")
 
     elif len(parts) >= 3 and parts[1].lower() == "remove":
         ticker = parts[2].upper()
@@ -2151,25 +2209,57 @@ def _handle_watchlist(chat_id: str, parts: list):
             user_wl.remove(ticker)
             wl_db[chat_id] = user_wl
             wl_path.write_text(json.dumps(wl_db, ensure_ascii=False, indent=2), encoding="utf-8")
-            send(chat_id, f"삭제했습니다. 현재 목록: {', '.join(user_wl) if user_wl else '없음'}")
+            send(chat_id, (
+                f"🗑 <b>{ticker}</b> 삭제했습니다.\n"
+                f"남은 종목: {', '.join(user_wl) if user_wl else '없음'}"
+            ))
         else:
             send(chat_id, f"{ticker}은 관심종목에 없습니다.")
 
     else:
         if not user_wl:
-            send(chat_id, "관심종목이 없습니다.\n추가: /watchlist add NVDA")
+            send(chat_id, (
+                "📋 <b>관심종목이 없어요</b>\n"
+                "━━━━━━━━━━━━━━━━━━━\n\n"
+                "관심 종목을 추가하면:\n"
+                "  • 실시간 가격 한눈에 확인\n"
+                "  • 매일 8시 맞춤 AI 브리핑\n"
+                "  • 목표가 알림 설정 가능\n\n"
+                "<b>추가 방법:</b> <code>/watchlist add NVDA</code>"
+            ), reply_markup={"inline_keyboard": [[
+                {"text": "📈 NVDA 추가해보기", "callback_data": "/watchlist add NVDA"},
+                {"text": "🔍 종목 검색", "callback_data": "__help_stock"},
+            ]]})
             return
         send(chat_id, "⏳ 관심종목 현황 조회 중...")
         from stock_analyzer import fetch_quote
-        lines = [f"<b>내 관심종목</b> ({len(user_wl)}개)\n"]
+        from concurrent.futures import ThreadPoolExecutor
+        quotes = {}
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            def _fq(s): return s, fetch_quote(s)
+            for sym, q in pool.map(_fq, user_wl):
+                quotes[sym] = q
+        lines = [f"<b>📋 내 관심종목</b> ({len(user_wl)}개)\n━━━━━━━━━━━━━━━━━━━\n"]
+        btn_rows = []
+        total_up = sum(1 for s in user_wl if quotes.get(s) and quotes[s].get("change_pct", 0) >= 0)
+        total_dn = len(user_wl) - total_up
         for sym in user_wl:
-            q = fetch_quote(sym)
+            q = quotes.get(sym)
             if q:
-                arrow = "▲" if q["change_pct"] >= 0 else "▼"
-                lines.append(f"{sym}: ${q['price']:.2f} {arrow}{q['change_pct']:+.2f}%")
+                pct = q["change_pct"]
+                arrow = "▲" if pct >= 0 else "▼"
+                sign = "+" if pct >= 0 else ""
+                mood = "🟢" if pct >= 1 else "🔴" if pct <= -1 else "🟡"
+                lines.append(f"{mood} <b>{sym}</b>  ${q['price']:,.2f}  {arrow}{sign}{pct:.2f}%")
             else:
-                lines.append(f"{sym}: 조회 실패")
-        send(chat_id, "\n".join(lines))
+                lines.append(f"⚪ <b>{sym}</b>  --")
+            btn_rows.append([{"text": f"🔍 {sym} 분석", "callback_data": f"/{sym}"}])
+        lines.append(f"\n🟢 {total_up}개 상승 · 🔴 {total_dn}개 하락")
+        btn_rows.append([
+            {"text": "📊 시황 보기", "callback_data": "/시황"},
+            {"text": "+ 종목 추가", "callback_data": "__help_watchlist"},
+        ])
+        send(chat_id, "\n".join(lines), reply_markup={"inline_keyboard": btn_rows})
 
 
 # Webhook 라우터
