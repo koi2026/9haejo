@@ -805,6 +805,37 @@ export default function Home() {
             </a>
           </div>
 
+          {/* 마일스톤 배지 */}
+          {subCount !== null && (() => {
+            const milestones = [50, 100, 200, 500, 1000, 2000, 5000];
+            const achieved = milestones.filter(m => subCount >= m);
+            const next = milestones.find(m => subCount < m) || milestones[milestones.length - 1];
+            const prev = achieved[achieved.length - 1] || 0;
+            const progress = Math.min(((subCount - prev) / (next - prev)) * 100, 100);
+            const latestBadge = achieved[achieved.length - 1];
+            return (
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+                <div style={{ padding: "12px 24px", borderRadius: 16, background: `${C.green}08`, border: `1px solid ${C.green}25`, maxWidth: 400, width: "100%" }}>
+                  {latestBadge && (
+                    <div style={{ textAlign: "center", fontSize: 12, color: C.green, fontWeight: 700, marginBottom: 8 }}>
+                      🎉 {latestBadge}명 달성 완료!
+                    </div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.muted, marginBottom: 6 }}>
+                    <span>{prev}명</span>
+                    <span style={{ color: C.green, fontWeight: 700 }}>다음 목표: {next}명</span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 3, background: `${C.border}`, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${progress}%`, borderRadius: 3, background: C.grad, transition: "width 1s ease" }} />
+                  </div>
+                  <div style={{ textAlign: "center", fontSize: 11, color: C.muted, marginTop: 6 }}>
+                    {next - subCount}명 더 구독하면 달성!
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* 지표 */}
           <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
             <StatCard value={subCount !== null ? `${animatedCount}명` : "-"} label="구독자" sub="30초마다 갱신" live highlight />
