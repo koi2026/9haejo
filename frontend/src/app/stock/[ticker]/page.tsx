@@ -91,6 +91,11 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     macd: number | null; macd_signal: string;
     vol_ratio: number; vol_spike: boolean; trend: string;
   } | null>(null);
+  const [analyst, setAnalyst] = useState<{
+    mean_target: number | null; high_target: number | null; low_target: number | null;
+    upside_pct: number | null; num_analysts: number | null; recommendation: string;
+    strong_buy: number; buy: number; hold: number; sell: number; strong_sell: number; total: number;
+  } | null>(null);
 
   const fetchQuote = () => {
     fetch(`${API}/stock/${upperTicker}`)
@@ -119,6 +124,11 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     fetch(`${API}/stock/${upperTicker}/technicals`)
       .then(r => r.json())
       .then(d => { if (!d.error) setTechnicals(d); })
+      .catch(() => {});
+    // 애널리스트 컨센서스
+    fetch(`${API}/stock/${upperTicker}/analyst`)
+      .then(r => r.json())
+      .then(d => { if (!d.error && d.total > 0) setAnalyst(d); })
       .catch(() => {});
     // 동종 종목
     fetch(`${API}/stock/${upperTicker}/peers`)
@@ -404,6 +414,68 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 );
               })()}
             </div>
+
+            {/* Analyst Consensus */}
+            {analyst && analyst.total > 0 && (
+              <div style={{ padding: "20px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+                <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 16 }}>ANALYST CONSENSUS</p>
+                <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+                  {/* Target price */}
+                  {analyst.mean_target && (
+                    <div style={{ flex: "1 1 160px", padding: "14px", borderRadius: 12, background: C.surface, border: `1px solid ${analyst.upside_pct && analyst.upside_pct > 0 ? C.green + "30" : C.red + "30"}` }}>
+                      <div style={{ fontSize: 10, color: C.muted, fontFamily: "monospace", marginBottom: 6 }}>평균 목표주가</div>
+                      <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "monospace", color: C.text }}>${analyst.mean_target.toFixed(2)}</div>
+                      {analyst.upside_pct !== null && (
+                        <div style={{ fontSize: 13, fontWeight: 700, color: analyst.upside_pct > 0 ? C.green : C.red, marginTop: 4 }}>
+                          {analyst.upside_pct > 0 ? "▲+" : "▼"}{analyst.upside_pct.toFixed(1)}% 상승여력
+                        </div>
+                      )}
+                      {analyst.num_analysts && (
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{analyst.num_analysts}명 애널리스트</div>
+                      )}
+                    </div>
+                  )}
+                  {/* Range */}
+                  {analyst.low_target && analyst.high_target && (
+                    <div style={{ flex: "1 1 160px", padding: "14px", borderRadius: 12, background: C.surface, border: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 10, color: C.muted, fontFamily: "monospace", marginBottom: 6 }}>목표주가 범위</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.green, fontFamily: "monospace" }}>${analyst.high_target.toFixed(2)}</div>
+                      <div style={{ height: 4, borderRadius: 2, background: C.border, margin: "8px 0", position: "relative" }}>
+                        <div style={{ position: "absolute", height: "100%", background: `linear-gradient(90deg, ${C.red}, ${C.green})`, borderRadius: 2, width: "100%" }} />
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.red, fontFamily: "monospace" }}>${analyst.low_target.toFixed(2)}</div>
+                    </div>
+                  )}
+                </div>
+                {/* Recommendation bar */}
+                {analyst.total > 0 && (() => {
+                  const { strong_buy: sb, buy: b, hold: h, sell: s, strong_sell: ss, total: t } = analyst;
+                  const buyPct = ((sb + b) / t) * 100;
+                  const holdPct = (h / t) * 100;
+                  const sellPct = ((s + ss) / t) * 100;
+                  const consensus = buyPct >= 60 ? "강력 매수" : buyPct >= 40 ? "매수" : holdPct >= 40 ? "보유" : "매도";
+                  const consensusColor = buyPct >= 50 ? C.green : holdPct >= 50 ? "#f59e0b" : C.red;
+                  return (
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, color: C.muted }}>추천 분포</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: consensusColor }}>컨센서스: {consensus}</span>
+                      </div>
+                      <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", gap: 1 }}>
+                        <div style={{ width: `${buyPct}%`, background: C.green }} />
+                        <div style={{ width: `${holdPct}%`, background: "#f59e0b" }} />
+                        <div style={{ width: `${sellPct}%`, background: C.red }} />
+                      </div>
+                      <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: 11, color: C.muted }}>
+                        <span style={{ color: C.green }}>매수 {sb + b}명 ({buyPct.toFixed(0)}%)</span>
+                        <span style={{ color: "#f59e0b" }}>보유 {h}명 ({holdPct.toFixed(0)}%)</span>
+                        <span style={{ color: C.red }}>매도 {s + ss}명 ({sellPct.toFixed(0)}%)</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* AI Analysis */}
             {data.analysis && (

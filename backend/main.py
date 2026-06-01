@@ -894,6 +894,64 @@ Write 3-4 sentences: (1) current momentum, (2) key risk/opportunity, (3) what Ko
     return result
 
 
+@app.get("/stock/{ticker}/analyst")
+def stock_analyst(ticker: str):
+    """애널리스트 컨센서스 (목표주가·추천분포, 1시간 캐시)"""
+    import yfinance as yf
+    from cache import analysis_cache
+    ticker = ticker.upper().strip()
+    cache_key = f"analyst:{ticker}"
+    cached = analysis_cache.get(cache_key)
+    if cached:
+        return cached
+    try:
+        t = yf.Ticker(ticker)
+        info = t.info or {}
+        # Price targets
+        mean_target = info.get("targetMeanPrice")
+        high_target = info.get("targetHighPrice")
+        low_target = info.get("targetLowPrice")
+        num_analysts = info.get("numberOfAnalystOpinions")
+        current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+        recommendation = info.get("recommendationKey", "")  # strong_buy, buy, hold, sell
+        # Recommendation summary
+        strong_buy = info.get("recommendationsBuy", 0) or 0
+        buy = 0
+        hold = info.get("recommendationsHold", 0) or 0
+        sell = info.get("recommendationsSell", 0) or 0
+        strong_sell = info.get("recommendationsStrongSell", 0) or 0
+        # Try recommendations_summary DataFrame
+        try:
+            rec_df = t.recommendations_summary
+            if rec_df is not None and len(rec_df) > 0:
+                latest = rec_df.iloc[0]
+                strong_buy = int(latest.get("strongBuy", strong_buy))
+                buy = int(latest.get("buy", buy))
+                hold = int(latest.get("hold", hold))
+                sell = int(latest.get("sell", sell))
+                strong_sell = int(latest.get("strongSell", strong_sell))
+        except Exception:
+            pass
+        total = strong_buy + buy + hold + sell + strong_sell
+        upside = ((mean_target - current_price) / current_price * 100) if mean_target and current_price else None
+        result = {
+            "ticker": ticker,
+            "current_price": current_price,
+            "mean_target": round(mean_target, 2) if mean_target else None,
+            "high_target": round(high_target, 2) if high_target else None,
+            "low_target": round(low_target, 2) if low_target else None,
+            "upside_pct": round(upside, 1) if upside else None,
+            "num_analysts": num_analysts,
+            "recommendation": recommendation,
+            "strong_buy": strong_buy, "buy": buy, "hold": hold,
+            "sell": sell, "strong_sell": strong_sell, "total": total,
+        }
+        analysis_cache.set(cache_key, result, ttl=3600)
+        return result
+    except Exception as e:
+        return {"error": str(e), "ticker": ticker}
+
+
 @app.get("/stock/{ticker}/peers")
 def stock_peers(ticker: str):
     """동종 섹터 주요 종목 현황 (5개, 캐시 5분)"""
