@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useRef, useCallback } from "react";
 import Link from "next/link";
 import NavSearch from "@/components/NavSearch";
 
@@ -35,6 +35,93 @@ interface StockData {
   div_rate?: number;
   payout_ratio?: number;
   ex_div_date?: string;
+}
+
+// ===== EPISODE 11: 인터랙티브 차트 =====
+interface ChartPt { x: number; y: number; price: number; date: string; }
+function InteractiveChart({ pts, pathD, fillD, W, H, pad, color, minIdx, maxIdx, gridLevels, startDate, endDate }: {
+  pts: ChartPt[]; pathD: string; fillD: string; W: number; H: number; pad: number; color: string;
+  minIdx: number; maxIdx: number;
+  gridLevels: { y: number; price: number }[];
+  startDate: string; endDate: string;
+}) {
+  const [hover, setHover] = useState<{ x: number; y: number; price: number; date: string; idx: number } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    // Find closest point
+    let best = 0;
+    let bestDist = Infinity;
+    pts.forEach((p, i) => {
+      const d = Math.abs(p.x - svgX);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    setHover({ ...pts[best], idx: best });
+  }, [pts, W]);
+
+  const C_green = "#00d97e", C_red = "#ff4466", C_muted = "#6b6b80", C_border = "#1a1a2e";
+
+  return (
+    <div style={{ position: "relative" }}>
+      {/* Hover tooltip */}
+      {hover && (
+        <div style={{
+          position: "absolute", top: 0,
+          left: Math.min(Math.max((hover.x / W) * 100, 8), 75) + "%",
+          background: "#111120", border: `1px solid ${color}40`,
+          borderRadius: 8, padding: "6px 10px", pointerEvents: "none",
+          zIndex: 10, whiteSpace: "nowrap", transform: "translateX(-50%)",
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color, fontFamily: "monospace" }}>${hover.price.toFixed(2)}</div>
+          <div style={{ fontSize: 10, color: C_muted }}>{hover.date}</div>
+        </div>
+      )}
+      <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`}
+        style={{ overflow: "visible", display: "block", cursor: "crosshair" }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHover(null)}
+      >
+        <defs>
+          <linearGradient id="chartFillIG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
+        {/* Grid lines */}
+        {gridLevels.map((g, i) => (
+          <g key={i}>
+            <line x1={pad} y1={g.y} x2={W - pad} y2={g.y} stroke={C_border} strokeWidth="1" strokeDasharray={i === 0 ? "0" : "4,4"} />
+            <text x={W - pad + 4} y={g.y + 4} fontSize="9" fill={C_muted} fontFamily="monospace">${g.price.toFixed(0)}</text>
+          </g>
+        ))}
+        {/* Fill */}
+        <path d={fillD} fill="url(#chartFillIG)" />
+        {/* Line */}
+        <path d={pathD} stroke={color} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Min/Max markers */}
+        <circle cx={pts[minIdx].x} cy={pts[minIdx].y} r="4" fill={C_red} />
+        <text x={pts[minIdx].x} y={pts[minIdx].y + 15} textAnchor="middle" fontSize="9" fill={C_red} fontFamily="monospace">${pts[minIdx].price.toFixed(0)}</text>
+        <circle cx={pts[maxIdx].x} cy={pts[maxIdx].y} r="4" fill={C_green} />
+        <text x={pts[maxIdx].x} y={pts[maxIdx].y - 8} textAnchor="middle" fontSize="9" fill={C_green} fontFamily="monospace">${pts[maxIdx].price.toFixed(0)}</text>
+        {/* Last dot */}
+        <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="5" fill={color} />
+        {/* Hover crosshair */}
+        {hover && (
+          <>
+            <line x1={hover.x} y1={pad} x2={hover.x} y2={H - pad} stroke={color} strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
+            <circle cx={hover.x} cy={hover.y} r="5" fill={color} stroke="#07070f" strokeWidth="2" />
+          </>
+        )}
+      </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+        <span style={{ fontSize: 10, color: C_muted, fontFamily: "monospace" }}>{startDate}</span>
+        <span style={{ fontSize: 10, color: C_muted, fontFamily: "monospace" }}>{endDate}</span>
+      </div>
+    </div>
+  );
 }
 
 function StatRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
@@ -703,50 +790,36 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 </div>
               </div>
               {chartPrices.length < 2 ? (
-                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <div style={{ fontSize: 13, color: C.muted }}>차트 로딩 중…</div>
                 </div>
               ) : (() => {
-                const W = 720, H = 120, pad = 8;
+                const W = 720, H = 160, pad = 12;
                 const min = Math.min(...chartPrices), max = Math.max(...chartPrices);
                 const range = max - min || 1;
                 const color = data.change_pct >= 0 ? C.green : C.red;
-                const pts = chartPrices.map((p, i) => {
-                  const x = pad + (i / (chartPrices.length - 1)) * (W - pad * 2);
-                  const y = H - pad - ((p - min) / range) * (H - pad * 2);
-                  return `${x.toFixed(1)},${y.toFixed(1)}`;
-                });
-                const pathD = `M ${pts.join(" L ")}`;
-                const fillD = `${pathD} L ${(W - pad).toFixed(1)},${(H - pad).toFixed(1)} L ${pad},${(H - pad).toFixed(1)} Z`;
+                const pts = chartPrices.map((p, i) => ({
+                  x: pad + (i / (chartPrices.length - 1)) * (W - pad * 2),
+                  y: H - pad - ((p - min) / range) * (H - pad * 2),
+                  price: p, date: chartDates[i] || "",
+                }));
+                const pathD = `M ${pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ")}`;
+                const fillD = `${pathD} L ${pts[pts.length-1].x.toFixed(1)},${(H-pad).toFixed(1)} L ${pts[0].x.toFixed(1)},${(H-pad).toFixed(1)} Z`;
                 const minIdx = chartPrices.indexOf(min);
                 const maxIdx = chartPrices.indexOf(max);
-                const [minX, minY] = pts[minIdx].split(",").map(Number);
-                const [maxX, maxY] = pts[maxIdx].split(",").map(Number);
+                // Y-axis grid lines (3 levels)
+                const gridLevels = [0, 0.5, 1].map(t => ({
+                  y: H - pad - t * (H - pad * 2),
+                  price: min + t * range,
+                }));
                 return (
-                  <div>
-                    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible", display: "block" }}>
-                      <defs>
-                        <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-                          <stop offset="100%" stopColor={color} stopOpacity="0.01" />
-                        </linearGradient>
-                      </defs>
-                      <path d={fillD} fill="url(#chartFill)" />
-                      <path d={pathD} stroke={color} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                      {/* Min marker */}
-                      <circle cx={minX} cy={minY} r="4" fill={C.red} />
-                      <text x={minX} y={minY + 16} textAnchor="middle" fontSize="10" fill={C.red} fontFamily="monospace">${min.toFixed(0)}</text>
-                      {/* Max marker */}
-                      <circle cx={maxX} cy={maxY} r="4" fill={C.green} />
-                      <text x={maxX} y={maxY - 8} textAnchor="middle" fontSize="10" fill={C.green} fontFamily="monospace">${max.toFixed(0)}</text>
-                      {/* Last point */}
-                      <circle cx={parseFloat(pts[pts.length - 1].split(",")[0])} cy={parseFloat(pts[pts.length - 1].split(",")[1])} r="5" fill={color} />
-                    </svg>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                      <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>{chartDates[0] || ""}</span>
-                      <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>{chartDates[chartDates.length - 1] || ""}</span>
-                    </div>
-                  </div>
+                  <InteractiveChart
+                    pts={pts} pathD={pathD} fillD={fillD}
+                    W={W} H={H} pad={pad} color={color}
+                    minIdx={minIdx} maxIdx={maxIdx}
+                    gridLevels={gridLevels}
+                    startDate={chartDates[0] || ""} endDate={chartDates[chartDates.length-1] || ""}
+                  />
                 );
               })()}
             </div>
