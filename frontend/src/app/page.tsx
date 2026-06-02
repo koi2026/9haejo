@@ -1378,8 +1378,26 @@ export default function Home() {
               ? [0,1,2,3,4].map(i => <SkeletonCard key={i} />)
               : briefing.length > 0
                 ? briefing.map((t, i) => <BriefingCard key={i} text={t} index={i} />)
-                : <div style={{ color: C.muted, gridColumn: "1/-1", textAlign: "center", padding: 40 }}>
-                    브리핑 데이터를 불러오는 중입니다. 잠시 후 새로고침 해주세요.
+                : <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "48px 24px" }}>
+                    <div style={{ fontSize: 48, marginBottom: 16 }}>🌙</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 8 }}>
+                      오늘의 브리핑 준비 중
+                    </div>
+                    <p style={{ fontSize: 14, color: C.muted, marginBottom: 24, lineHeight: 1.7 }}>
+                      매일 <strong style={{ color: C.text }}>오전 8시 KST</strong>에 Claude AI가<br/>
+                      미국 증시 마감 분석을 정리해서 전송합니다.<br/>
+                      텔레그램에서 먼저 받아보세요.
+                    </p>
+                    <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                      <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+                        style={{ padding: "12px 24px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 800, fontSize: 14, textDecoration: "none" }}>
+                        📱 텔레그램 구독하기
+                      </a>
+                      <Link href="/briefings"
+                        style={{ padding: "12px 24px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+                        📚 지난 브리핑 보기
+                      </Link>
+                    </div>
                   </div>
             }
           </div>
