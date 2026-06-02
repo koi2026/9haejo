@@ -22,8 +22,8 @@ export default async function Image({ params }: { params: { ticker: string } }) 
 
   try {
     const [qRes, techRes] = await Promise.allSettled([
-      fetch(`${API}/stock/quote/${ticker}`, { next: { revalidate: 60 } }),
-      fetch(`${API}/stock/${ticker}/technicals`, { next: { revalidate: 600 } }),
+      fetch(`${API}/stock/quote/${ticker}`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(3000) }),
+      fetch(`${API}/stock/${ticker}/technicals`, { next: { revalidate: 600 }, signal: AbortSignal.timeout(3000) }),
     ]);
     if (qRes.status === "fulfilled") {
       const d = await qRes.value.json();
