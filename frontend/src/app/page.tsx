@@ -1092,6 +1092,105 @@ export default function Home() {
         );
       })()}
 
+      {/* ===== EPISODE 5: HERO MARKET CARDS ===== */}
+      <style>{`
+        .hero-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        @media (min-width: 640px) { .hero-grid { grid-template-columns: repeat(4, 1fr); } }
+        @keyframes heroBarPulse { 0%,100% { opacity: 0.25; } 50% { opacity: 0.75; } }
+        @keyframes sessionDot { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+      `}</style>
+      {marketData && (() => {
+        const heroIndices = [
+          { key: "S&P500", data: marketData.indices["S&P500"] },
+          { key: "NASDAQ", data: marketData.indices["NASDAQ"] },
+          { key: "DOW", data: marketData.indices["DOW"] },
+          { key: "KOSPI", data: marketData.indices["KOSPI"] },
+        ];
+        const isLive = marketSession.label === "정규장 운영중" || marketSession.label === "Pre-Market" || marketSession.label === "After-Hours";
+        return (
+          <section style={{ background: "linear-gradient(180deg,#07070f 0%,#0d0d1a 100%)", borderBottom: `1px solid ${C.border}`, padding: "clamp(20px,3vw,40px) clamp(16px,3vw,24px) clamp(16px,2vw,28px)" }}>
+            <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+              {/* Status row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "4px 12px", borderRadius: 20,
+                  border: `1px solid ${marketSession.color}40`,
+                  background: `${marketSession.color}12`,
+                }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: marketSession.color, animation: isLive ? "sessionDot 1.5s ease-in-out infinite" : "none" }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: marketSession.color }}>{marketSession.label || "장 마감"}</span>
+                </div>
+                <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>{marketSession.nyTime}</span>
+                <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", marginLeft: "auto" }}>30초마다 갱신</span>
+              </div>
+              {/* 4 index cards */}
+              <div className="hero-grid">
+                {heroIndices.map(({ key, data }) => {
+                  if (!data) return (
+                    <div key={key} style={{ borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, padding: "20px 18px", height: 110 }} />
+                  );
+                  const up = data.change_pct >= 0;
+                  const col = up ? C.green : C.red;
+                  const fmtPrice = key === "KOSPI" || key === "DOW"
+                    ? data.price.toLocaleString("ko-KR", { maximumFractionDigits: 0 })
+                    : data.price.toLocaleString("en-US", { maximumFractionDigits: 0 });
+                  return (
+                    <div key={key} style={{
+                      borderRadius: 16, background: C.card,
+                      border: `1px solid ${col}30`,
+                      padding: "20px 18px", position: "relative", overflow: "hidden",
+                      boxShadow: `0 0 24px ${col}12`,
+                    }}>
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: col, animation: "heroBarPulse 2s ease-in-out infinite" }} />
+                      {isLive && (
+                        <div style={{ position: "absolute", top: 10, right: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, animation: "sessionDot 1.5s ease-in-out infinite" }} />
+                          <span style={{ fontSize: 9, color: C.green, fontFamily: "monospace", letterSpacing: 1 }}>LIVE</span>
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 1, marginBottom: 8 }}>{key}</div>
+                      <div style={{ fontSize: "clamp(22px,4vw,30px)", fontWeight: 900, color: C.text, fontFamily: "monospace", lineHeight: 1, marginBottom: 6 }}>{fmtPrice}</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: col }}>{up ? "▲+" : "▼"}{data.change_pct.toFixed(2)}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Briefing snippet */}
+              {briefing.length > 0 && (
+                <div id="briefing-snippet" style={{ marginTop: 16, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.green}`, borderRadius: 16, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10, color: C.green, fontFamily: "monospace", letterSpacing: 2, marginBottom: 6 }}>오늘의 브리핑</div>
+                    <p style={{ fontSize: 13, color: C.text, lineHeight: 1.6, margin: 0, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                      {briefing[0].slice(0, 160)}{briefing[0].length > 160 ? "…" : ""}
+                    </p>
+                  </div>
+                  <Link href="/briefings" style={{ fontSize: 12, color: C.blue, textDecoration: "none", fontWeight: 700, whiteSpace: "nowrap", border: `1px solid ${C.blue}40`, padding: "6px 14px", borderRadius: 8 }}>
+                    전체 보기 →
+                  </Link>
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* ===== FLOATING ACTION BUTTONS ===== */}
+      <div style={{ position: "fixed", bottom: isMobile ? 80 : 24, right: 20, zIndex: 150, display: "flex", flexDirection: "column", gap: 10 }}>
+        <button
+          onClick={() => document.getElementById("briefing-snippet")?.scrollIntoView({ behavior: "smooth" })}
+          style={{ padding: "10px 14px", borderRadius: 12, fontSize: 12, fontWeight: 700, background: C.card, border: `1px solid ${C.green}40`, color: C.green, cursor: "pointer", boxShadow: `0 4px 16px ${C.green}18`, backdropFilter: "blur(8px)", whiteSpace: "nowrap" }}
+        >
+          📊 브리핑
+        </button>
+        <a
+          href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+          style={{ padding: "10px 14px", borderRadius: 12, fontSize: 12, fontWeight: 700, background: C.grad, color: "#07070f", textDecoration: "none", boxShadow: `0 4px 16px ${C.green}30`, textAlign: "center", whiteSpace: "nowrap" }}
+        >
+          📱 텔레그램
+        </a>
+      </div>
+
       {/* HERO */}
       <section style={{ padding: "80px 24px 60px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(#1a1a2e15 1px,transparent 1px),linear-gradient(90deg,#1a1a2e15 1px,transparent 1px)", backgroundSize: "48px 48px", pointerEvents: "none" }} />
