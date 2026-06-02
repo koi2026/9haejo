@@ -2296,6 +2296,37 @@ Write 3 sentences in Korean: (1) key difference, (2) who should buy which, (3) o
             # 너무 짧거나 명백히 커맨드처럼 보이면 무시
             if len(text) < 2:
                 return
+
+            # 자연어로 커맨드 목록 요청 감지
+            _t_lower = text.lower().replace(" ", "")
+            if any(kw in _t_lower for kw in ["커맨드", "명령어", "commands", "도움말", "뭐할수있", "뭐가있", "사용법", "어떻게써", "어떻게사용"]):
+                COMMAND_CARD = (
+                    "📖 <b>구해조 전체 커맨드</b>\n\n"
+                    "━━━ 📊 시황·브리핑 ━━━\n"
+                    "/브리핑 — AI 미국 증시 브리핑\n"
+                    "/시황 — 지수·환율·공포탐욕\n"
+                    "/뉴스 — 월가 뉴스 한국어 요약\n"
+                    "/매크로 — VIX·DXY·금리·원자재\n\n"
+                    "━━━ 🔍 종목 ━━━\n"
+                    "종목명/티커 입력 → AI 즉시 분석\n"
+                    "/뉴스 NVDA — 종목별 뉴스\n"
+                    "/종목전망 NVDA — 주간 전망\n"
+                    "/compare NVDA TSLA — 종목 비교\n"
+                    "/sector 반도체 — 섹터 ETF 분석\n\n"
+                    "━━━ 📈 스크리너 ━━━\n"
+                    "/상승 반도체 — 섹터 상승 랭킹\n"
+                    "/하락 tech — 섹터 하락 랭킹\n"
+                    "/랭킹 crypto — 암호화폐·빅테크\n\n"
+                    "━━━ 🔔 내 계정 ━━━\n"
+                    "/구독 — 매일 8시 브리핑 구독\n"
+                    "/watchlist add NVDA — 관심종목\n"
+                    "/알림 NVDA 200 — 가격 알림 등록\n"
+                    "/포트폴리오 — 관심종목 AI 진단\n"
+                    "/내통계 — 내 구독·알림 현황\n\n"
+                    "💡 종목명을 그냥 입력하면 바로 분석!"
+                )
+                send(chat_id, COMMAND_CARD, reply_markup=MAIN_MENU)
+                return
             if text.startswith("/"):
                 # 알 수 없는 명령어 — 유사 명령어 추천
                 typed = text.split()[0].lower().lstrip("/")
