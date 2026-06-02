@@ -105,6 +105,10 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [stockNews, setStockNews] = useState<{
     title: string; source: string; url: string; sentiment: string; score: number; summary: string; published: string;
   }[]>([]);
+  const [financials, setFinancials] = useState<{
+    quarters: string[]; eps: (number | null)[]; revenue: (number | null)[];
+    ttm_eps?: number | null; forward_eps?: number | null;
+  } | null>(null);
 
   const fetchQuote = () => {
     fetch(`${API}/stock/${upperTicker}`)
@@ -143,6 +147,11 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     fetch(`${API}/stock/${upperTicker}/peers`)
       .then(r => r.json())
       .then(d => { if (d.peers?.length) { setPeers(d.peers); setPeerSector(d.sector || ""); } })
+      .catch(() => {});
+    // 재무 데이터 (EPS·매출)
+    fetch(`${API}/stock/${upperTicker}/financials`)
+      .then(r => r.json())
+      .then(d => { if (d.quarters?.length || d.ttm_eps) setFinancials(d); })
       .catch(() => {});
     // 종목 뉴스
     fetch(`${API}/stock/${upperTicker}/news`)
@@ -590,6 +599,100 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 텔레그램 공유
               </a>
             </div>
+
+            {/* 분기별 재무 (EPS·매출) */}
+            {financials && (financials.quarters.length > 0 || financials.ttm_eps) && (
+              <div style={{ padding: "20px 24px", borderRadius: 16, background: C.surface, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 16 }}>
+                  📊 QUARTERLY FINANCIALS
+                </div>
+
+                {/* TTM / Forward EPS only fallback */}
+                {!financials.quarters.length && financials.ttm_eps !== undefined && (
+                  <div style={{ display: "flex", gap: 16 }}>
+                    {financials.ttm_eps != null && (
+                      <div style={{ padding: "12px 16px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, flex: 1, textAlign: "center" }}>
+                        <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>TTM EPS</div>
+                        <div style={{ fontSize: 20, fontWeight: 900, fontFamily: "monospace", color: financials.ttm_eps >= 0 ? C.green : C.red }}>
+                          ${financials.ttm_eps.toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                    {financials.forward_eps != null && (
+                      <div style={{ padding: "12px 16px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, flex: 1, textAlign: "center" }}>
+                        <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Forward EPS</div>
+                        <div style={{ fontSize: 20, fontWeight: 900, fontFamily: "monospace", color: C.blue }}>
+                          ${financials.forward_eps.toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {financials.quarters.length > 0 && (() => {
+                  const qs = financials.quarters;
+                  const eps = financials.eps;
+                  const rev = financials.revenue;
+                  const maxRev = Math.max(...rev.filter(v => v !== null) as number[]);
+                  const maxEpsAbs = Math.max(...eps.filter(v => v !== null).map(v => Math.abs(v as number)));
+
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                      {/* Revenue bars */}
+                      {maxRev > 0 && (
+                        <div>
+                          <div style={{ fontSize: 11, color: C.blue, fontFamily: "monospace", letterSpacing: 1, marginBottom: 10 }}>매출 (단위: $B)</div>
+                          <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 80 }}>
+                            {qs.map((q, i) => {
+                              const v = rev[i];
+                              const pct = v != null ? (v / maxRev) * 100 : 0;
+                              const prev = i > 0 ? rev[i - 1] : null;
+                              const up = v != null && prev != null ? v >= prev : null;
+                              return (
+                                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                                  {v != null && (
+                                    <div style={{ fontSize: 9, color: up === true ? C.green : up === false ? C.red : C.muted, fontFamily: "monospace", fontWeight: 700 }}>
+                                      ${v.toFixed(1)}B
+                                    </div>
+                                  )}
+                                  <div style={{ width: "100%", height: `${pct}%`, borderRadius: "4px 4px 0 0", background: up === true ? C.blue + "cc" : up === false ? C.blue + "66" : C.border, minHeight: 4, transition: "height 0.8s ease" }} />
+                                  <div style={{ fontSize: 9, color: C.muted, textAlign: "center", lineHeight: 1.2 }}>{q}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* EPS bars */}
+                      {maxEpsAbs > 0 && (
+                        <div>
+                          <div style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 1, marginBottom: 10 }}>주당순이익 EPS ($)</div>
+                          <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 70 }}>
+                            {qs.map((q, i) => {
+                              const v = eps[i];
+                              const pct = v != null ? (Math.abs(v) / maxEpsAbs) * 100 : 0;
+                              const color = v != null && v >= 0 ? C.green : C.red;
+                              return (
+                                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                                  {v != null && (
+                                    <div style={{ fontSize: 9, color, fontFamily: "monospace", fontWeight: 700 }}>
+                                      {v >= 0 ? "+" : ""}{v.toFixed(2)}
+                                    </div>
+                                  )}
+                                  <div style={{ width: "100%", height: `${pct}%`, borderRadius: "4px 4px 0 0", background: color + "bb", minHeight: v != null ? 4 : 0, transition: "height 0.8s ease" }} />
+                                  <div style={{ fontSize: 9, color: C.muted, textAlign: "center", lineHeight: 1.2 }}>{q}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* 동종 섹터 종목 */}
             {peers.length > 0 && (
