@@ -973,7 +973,7 @@ export default function Home() {
 
 
     // 지수 + 빅테크 스파크라인 (7일 데이터)
-    const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI", "VIX": "^VIX", "NVDA": "NVDA", "TSLA": "TSLA", "AAPL": "AAPL", "MSFT": "MSFT", "META": "META", "AMZN": "AMZN" };
+    const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI", "VIX": "^VIX", "NVDA": "NVDA", "TSLA": "TSLA", "AAPL": "AAPL", "MSFT": "MSFT", "META": "META", "AMZN": "AMZN", "GOOGL": "GOOGL", "AVGO": "AVGO" };
     Object.entries(sparkTickers).forEach(([name, sym]) => {
       fetch(`${API}/stock/history/${encodeURIComponent(sym)}?days=7`)
         .then(r => r.json())
@@ -1351,36 +1351,122 @@ export default function Home() {
       )}
 
       {/* SECTOR HEATMAP */}
+      {/* ===== EPISODE 9: 섹터 히트맵 (업그레이드) + 빅테크 카드 ===== */}
       {marketData?.sectors && Object.values(marketData.sectors).some(v => v !== null) && (
-        <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "24px 24px" }}>
+        <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "28px 24px" }}>
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <span style={{ fontSize: 11, color: "#a78bfa", fontFamily: "monospace", letterSpacing: 3 }}>SECTOR HEATMAP</span>
-              <span style={{ fontSize: 11, color: C.muted }}>섹터별 등락률</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
-              {Object.entries(marketData.sectors).map(([name, d]) => {
-                if (!d) return null;
-                const pct = d.change_pct;
-                const intensity = Math.min(Math.abs(pct) / 3, 1);
-                const bg = pct >= 0
-                  ? `rgba(0, 217, 126, ${0.08 + intensity * 0.28})`
-                  : `rgba(255, 68, 102, ${0.08 + intensity * 0.28})`;
-                const border = pct >= 0
-                  ? `rgba(0, 217, 126, ${0.2 + intensity * 0.4})`
-                  : `rgba(255, 68, 102, ${0.2 + intensity * 0.4})`;
-                const color = pct >= 0 ? C.green : C.red;
-                const shortName = name.split("(")[0].trim();
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, color: "#a78bfa", fontFamily: "monospace", letterSpacing: 3 }}>SECTOR HEATMAP</span>
+                <span style={{ fontSize: 11, color: C.muted }}>섹터별 등락률 · 클릭하면 분석</span>
+              </div>
+              {/* 상승/하락 요약 */}
+              {(() => {
+                const valid = Object.values(marketData.sectors).filter(Boolean) as { price: number; change_pct: number }[];
+                const up = valid.filter(v => v.change_pct >= 0).length;
+                const dn = valid.length - up;
                 return (
-                  <div key={name} style={{
-                    padding: "12px 8px", borderRadius: 10, background: bg,
-                    border: `1px solid ${border}`, textAlign: "center",
-                  }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 4 }}>{shortName}</div>
-                    <div style={{ fontSize: 16, fontWeight: 900, color, fontFamily: "monospace" }}>
-                      {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
-                    </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>▲ {up}개 상승</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.red }}>▼ {dn}개 하락</span>
                   </div>
+                );
+              })()}
+            </div>
+            {/* 히트맵 타일 — 등락률 절댓값에 비례한 폰트 크기 */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 }}>
+              {Object.entries(marketData.sectors)
+                .filter(([, d]) => d !== null)
+                .sort(([, a], [, b]) => (b as { change_pct: number }).change_pct - (a as { change_pct: number }).change_pct)
+                .map(([name, d]) => {
+                  if (!d) return null;
+                  const pct = d.change_pct;
+                  const abs = Math.abs(pct);
+                  const intensity = Math.min(abs / 3, 1);
+                  const up = pct >= 0;
+                  const bg = up
+                    ? `rgba(0,217,126,${0.06 + intensity * 0.32})`
+                    : `rgba(255,68,102,${0.06 + intensity * 0.32})`;
+                  const borderCol = up
+                    ? `rgba(0,217,126,${0.2 + intensity * 0.5})`
+                    : `rgba(255,68,102,${0.2 + intensity * 0.5})`;
+                  const color = up ? C.green : C.red;
+                  const shortName = name.split("(")[0].trim();
+                  const etfTicker = name.match(/\(([^)]+)\)/)?.[1] || "";
+                  const pctFontSize = 14 + Math.min(abs * 2.5, 10); // 14~24px
+                  return (
+                    <Link key={name} href={etfTicker ? `/stock/${etfTicker}` : "#"} style={{ textDecoration: "none" }}>
+                      <div style={{
+                        padding: "16px 12px", borderRadius: 14, background: bg,
+                        border: `1px solid ${borderCol}`, textAlign: "center",
+                        cursor: "pointer", transition: "transform 0.15s, box-shadow 0.15s",
+                        boxShadow: intensity > 0.5 ? `0 0 20px ${color}18` : "none",
+                      }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.04)"; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 24px ${color}30`; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.boxShadow = intensity > 0.5 ? `0 0 20px ${color}18` : "none"; }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 6 }}>{shortName}</div>
+                        <div style={{ fontSize: pctFontSize, fontWeight: 900, color, fontFamily: "monospace", lineHeight: 1 }}>
+                          {up ? "+" : ""}{pct.toFixed(2)}%
+                        </div>
+                        {etfTicker && <div style={{ fontSize: 9, color: `${color}80`, fontFamily: "monospace", marginTop: 5 }}>{etfTicker}</div>}
+                      </div>
+                    </Link>
+                  );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===== EPISODE 10: 빅테크 실시간 카드 ===== */}
+      {marketData?.big_stocks && Object.keys(marketData.big_stocks).length > 0 && (
+        <section style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "28px 24px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <span style={{ fontSize: 11, color: C.blue, fontFamily: "monospace", letterSpacing: 3 }}>BIG TECH</span>
+              <span style={{ fontSize: 11, color: C.muted }}>주요 종목 실시간</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+              {Object.entries(marketData.big_stocks).map(([ticker, d]) => {
+                const up = d.change_pct >= 0;
+                const col = up ? C.green : C.red;
+                const sp = sparklines[ticker];
+                return (
+                  <Link key={ticker} href={`/stock/${ticker}`} style={{ textDecoration: "none" }}>
+                    <div style={{
+                      padding: "16px 16px 12px", borderRadius: 14, background: C.card,
+                      border: `1px solid ${col}25`, cursor: "pointer", transition: "border-color 0.2s, box-shadow 0.2s",
+                    }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${col}60`; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 16px ${col}18`; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = `${col}25`; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 15, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>{ticker}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: col }}>{up ? "▲+" : "▼"}{d.change_pct.toFixed(2)}%</div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>${d.price.toFixed(2)}</div>
+                        </div>
+                      </div>
+                      {/* 미니 스파크라인 */}
+                      {sp && sp.length >= 2 && (() => {
+                        const mn = Math.min(...sp), mx = Math.max(...sp), rng = mx - mn || 1;
+                        const W = 130, H = 32;
+                        const pts = sp.map((p, i) => {
+                          const x = (i / (sp.length - 1)) * W;
+                          const y = H - ((p - mn) / rng) * (H - 4) - 2;
+                          return `${x.toFixed(1)},${y.toFixed(1)}`;
+                        }).join(" ");
+                        return (
+                          <svg width={W} height={H} style={{ display: "block", width: "100%" }}>
+                            <polyline points={pts} fill="none" stroke={col} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
+                          </svg>
+                        );
+                      })()}
+                    </div>
+                  </Link>
                 );
               })}
             </div>
