@@ -93,21 +93,17 @@ MAIN_MENU = {
     "inline_keyboard": [[
         {"text": "📊 지금 시황", "callback_data": "/시황"},
         {"text": "🤖 AI 브리핑", "callback_data": "/브리핑"},
+        {"text": "📰 뉴스", "callback_data": "/뉴스"},
     ], [
-        {"text": "📰 뉴스 분석", "callback_data": "/뉴스"},
-        {"text": "🔥 급등락 종목", "callback_data": "/급등"},
+        {"text": "🔥 급등락", "callback_data": "/급등"},
+        {"text": "🌐 매크로", "callback_data": "/매크로"},
+        {"text": "📅 실적일정", "callback_data": "/실적"},
     ], [
-        {"text": "🔍 종목 분석", "callback_data": "__help_stock"},
-        {"text": "⚖️ 종목 비교", "callback_data": "__help_compare"},
-    ], [
-        {"text": "📋 내 관심종목", "callback_data": "/watchlist"},
-        {"text": "💰 수익률 추적", "callback_data": "/포지션"},
-    ], [
+        {"text": "📋 관심종목", "callback_data": "/watchlist"},
         {"text": "🔔 가격 알림", "callback_data": "/알림"},
-        {"text": "✅ 매일 8시 구독", "callback_data": "/구독"},
+        {"text": "✅ 구독", "callback_data": "/구독"},
     ], [
-        {"text": "🌐 매크로 분석", "callback_data": "/매크로"},
-        {"text": "📅 실적 캘린더", "callback_data": "/실적"},
+        {"text": "📖 전체 커맨드 보기", "callback_data": "/커맨드"},
     ]]
 }
 
@@ -361,19 +357,17 @@ def handle_update(update: dict):
                 market_block = ""
 
             send(chat_id, (
-                "🤖 <b>구해조 AI에 오신 걸 환영합니다!</b>\n"
-                "━━━━━━━━━━━━━━━━━━━\n\n"
-                "월가 마감 후 Claude AI가 분석한\n"
-                "<b>미국 증시 핵심 브리핑</b>을 매일 아침 8시에\n"
-                "텔레그램으로 직접 받아보세요. 무료입니다.\n"
-                f"{market_block}\n"
+                "🇺🇸 <b>구해조 — 미국 증시 AI 어시스턴트</b>\n"
                 "━━━━━━━━━━━━━━━━━━━\n"
-                "📌 <b>할 수 있는 것들:</b>\n"
-                "  • <code>NVDA</code> 입력 → 즉시 AI 분석\n"
-                "  • /브리핑 → 오늘 5편 심층 브리핑\n"
-                "  • /알림 NVDA 200 → 목표가 도달 알림\n"
-                "  • /구독 → 매일 8시 자동 발송\n\n"
-                f"🔑 내 Chat ID: <code>{chat_id}</code>"
+                f"{market_block}"
+                "\n━━━━━━━━━━━━━━━━━━━\n"
+                "⚡ <b>3초 퀵스타트</b>\n"
+                "  1️⃣  <code>NVDA</code> 입력 → AI 즉시 분석\n"
+                "  2️⃣  /구독 → 매일 8시 자동 브리핑\n"
+                "  3️⃣  /알림 NVDA 200 → 목표가 도달 알림\n\n"
+                "📖 전체 커맨드: /커맨드\n"
+                f"🔑 내 Chat ID: <code>{chat_id}</code>\n"
+                "🌐 웹: https://9haejo.vercel.app"
             ), reply_markup=MAIN_MENU)
 
         # ── /도움말 (키워드 검색) ────────────────────
@@ -412,6 +406,58 @@ def handle_update(update: dict):
             send(chat_id,
                 "📖 <b>구해조 커맨드</b>\n\n카테고리를 선택해 자세한 사용법을 확인하세요:",
                 reply_markup=HELP_MENU
+            )
+
+        # ── /커맨드 (전체 커맨드 목록) ─────────────────
+        elif cmd in ["/커맨드", "/commands", "/menu", "/메뉴"]:
+            send(chat_id,
+                "📖 <b>구해조 전체 커맨드</b>\n"
+                "━━━━━━━━━━━━━━━━━━━\n\n"
+                "📊 <b>시황 · 브리핑</b>\n"
+                "  /시황 — 미국+한국 지수·섹터·환율 전체\n"
+                "  /브리핑 — Claude AI 5편 심층 분석\n"
+                "  /뉴스 — 월가 뉴스 AI 요약\n"
+                "  /요약 — 1줄 스냅샷 (즉시)\n"
+                "  /주간 — 이번 주 시장 성적표\n\n"
+                "🔍 <b>종목 분석</b>\n"
+                "  <code>NVDA</code> — 티커 입력 → AI 즉시 분석\n"
+                "  /기술 NVDA — RSI·MACD·MA 기술지표\n"
+                "  /목표가 NVDA — 애널리스트 컨센서스\n"
+                "  /종목전망 NVDA — 주간 방향성 전망\n"
+                "  /비교 NVDA TSLA — AI 승자 판정\n"
+                "  /뉴스 NVDA — 종목 뉴스 해석\n\n"
+                "🏆 <b>스크리너 · 랭킹</b>\n"
+                "  /급등 — 오늘 급등락 TOP5\n"
+                "  /모멘텀 — RSI+이평선 돌파 종목\n"
+                "  /52주 — 신고가/신저가 근접\n"
+                "  /배당 — 고배당 안정주 TOP10\n"
+                "  /랭킹 crypto — BTC·ETH·SOL\n"
+                "  /섹터 — SPDR 섹터 ETF 성적표\n\n"
+                "🌐 <b>매크로 · 경제</b>\n"
+                "  /매크로 — VIX·DXY·금리·오일·금\n"
+                "  /금리 — 수익률 곡선 (2Y/10Y/30Y)\n"
+                "  /환율 — USD/KRW·JPY·CNY 전망\n"
+                "  /원자재 — 금/오일/구리/천연가스\n"
+                "  /캘린더 — FOMC·CPI·NFP 일정\n"
+                "  /실적 — 어닝시즌 일정\n\n"
+                "📋 <b>내 계정</b>\n"
+                "  /watchlist — 관심종목 조회/추가/삭제\n"
+                "  /포지션 — 수익률 추적\n"
+                "  /알림 NVDA 200 — 목표가 알림 설정\n"
+                "  /구독 — 매일 8시 자동 브리핑\n"
+                "  /ai — 나만의 맞춤 AI 브리핑\n"
+                "  /내통계 — 내 Chat ID 및 구독 현황\n\n"
+                "━━━━━━━━━━━━━━━━━━━\n"
+                "💡 <i>모든 종목명은 한국어도 인식합니다\n"
+                "예) 엔비디아, 테슬라, 애플</i>\n"
+                "🌐 9haejo.vercel.app",
+                reply_markup={"inline_keyboard": [[
+                    {"text": "📊 지금 시황", "callback_data": "/시황"},
+                    {"text": "🤖 AI 브리핑", "callback_data": "/브리핑"},
+                ], [
+                    {"text": "📋 관심종목", "callback_data": "/watchlist"},
+                    {"text": "🔔 가격 알림", "callback_data": "/알림"},
+                ]]}
             )
 
         # ── /구독 ────────────────────────────────────
