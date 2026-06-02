@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import NavSearch from "@/components/NavSearch";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
@@ -1042,6 +1043,7 @@ export default function Home() {
             <Link href="/watchlist" style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
               ⭐ 관심종목
             </Link>
+            <NavSearch />
             <button onClick={toggleLang} style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", letterSpacing: 1 }}>
               {T.langToggle}
             </button>
