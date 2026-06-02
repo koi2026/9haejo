@@ -164,7 +164,7 @@ function FearGauge({ score, label }: { score: number; label: string }) {
   const R = 80; const r2 = 56;
   const rad = (deg: number) => (deg * Math.PI) / 180;
   const polarX = (radius: number, deg: number) => cx + radius * Math.cos(rad(deg));
-  const polarY = (radius: number, deg: number) => cy + radius * Math.sin(rad(deg));
+  const polarY = (radius: number, deg: number) => cy - radius * Math.sin(rad(deg));
 
   // Arc from 180deg (left) to 0deg (right), counterclockwise = bottom half hidden
   const arcSeg = (startPct: number, endPct: number) => {
@@ -175,7 +175,7 @@ function FearGauge({ score, label }: { score: number; label: string }) {
     const xi1 = polarX(r2, sa); const yi1 = polarY(R, sa);
     const xi2 = polarX(r2, ea); const yi2 = polarY(r2, ea);
     const large = Math.abs(endPct - startPct) > 50 ? 1 : 0;
-    return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 0 ${x2} ${y2} L ${polarX(r2,ea)} ${polarY(r2,ea)} A ${r2} ${r2} 0 ${large} 1 ${polarX(r2,sa)} ${polarY(r2,sa)} Z`;
+    return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${polarX(r2,ea)} ${polarY(r2,ea)} A ${r2} ${r2} 0 ${large} 0 ${polarX(r2,sa)} ${polarY(r2,sa)} Z`;
   };
 
   const zones = [
@@ -973,7 +973,7 @@ export default function Home() {
 
 
     // 지수 + 빅테크 스파크라인 (7일 데이터)
-    const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "NVDA": "NVDA", "TSLA": "TSLA", "AAPL": "AAPL", "MSFT": "MSFT", "META": "META", "AMZN": "AMZN" };
+    const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI", "VIX": "^VIX", "NVDA": "NVDA", "TSLA": "TSLA", "AAPL": "AAPL", "MSFT": "MSFT", "META": "META", "AMZN": "AMZN" };
     Object.entries(sparkTickers).forEach(([name, sym]) => {
       fetch(`${API}/stock/history/${encodeURIComponent(sym)}?days=7`)
         .then(r => r.json())
