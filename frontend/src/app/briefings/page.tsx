@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
+import NavSearch from "@/components/NavSearch";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
@@ -51,6 +52,8 @@ function BriefingsContent() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
+  const [dateInput, setDateInput] = useState("");
+  const [dateInputError, setDateInputError] = useState("");
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -121,6 +124,34 @@ function BriefingsContent() {
     return () => clearTimeout(timer);
   }, [searchQuery, doSearch]);
 
+  const handleDateInput = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const d = dateInput.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      setDateInputError("YYYY-MM-DD 형식으로 입력하세요");
+      return;
+    }
+    setDateInputError("");
+    setBriefingLoading(true);
+    try {
+      const r = await fetch(`${API}/summary/history/${d}`);
+      const data = await r.json();
+      if (data.tweets?.length) {
+        setBriefings(prev => ({ ...prev, [d]: data.tweets }));
+        if (!dates.includes(d)) setDates(prev => [d, ...prev].sort((a, b) => b.localeCompare(a)));
+        setSelected(d);
+        router.push(`/briefings?date=${d}`, { scroll: false });
+        setDateInput("");
+      } else {
+        setDateInputError(`${d} 브리핑이 없습니다`);
+      }
+    } catch {
+      setDateInputError("불러오기 실패");
+    } finally {
+      setBriefingLoading(false);
+    }
+  };
+
   const highlightText = (text: string, query: string) => {
     if (!query.trim()) return text;
     const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
@@ -137,27 +168,54 @@ function BriefingsContent() {
         <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>BRIEFING ARCHIVE</p>
         <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, marginBottom: 8 }}>브리핑 아카이브</h1>
         <p style={{ color: C.muted, fontSize: 15, marginBottom: 20 }}>매일 오전 8시 발송된 AI 브리핑을 날짜별로 확인하세요</p>
-        {/* Search Bar */}
-        <div style={{ position: "relative", maxWidth: 480 }}>
-          <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: C.muted, pointerEvents: "none" }}>🔍</span>
-          <input
-            type="text"
-            placeholder="브리핑 키워드 검색... (예: NVDA, 금리, 반도체)"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            style={{
-              width: "100%", padding: "12px 16px 12px 44px", borderRadius: 12,
-              background: C.card, border: `1px solid ${searchMode ? C.green : C.border}`,
-              color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box",
-              transition: "border-color 0.2s",
-            }}
-          />
-          {searchQuery && (
-            <button onClick={() => { setSearchQuery(""); setSearchMode(false); setSearchResults([]); }}
-              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>
-              ×
-            </button>
-          )}
+        {/* Search + Date Input Row */}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
+          {/* Keyword search */}
+          <div style={{ position: "relative", flex: "1 1 280px", maxWidth: 420 }}>
+            <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: C.muted, pointerEvents: "none" }}>🔍</span>
+            <input
+              type="text"
+              placeholder="키워드 검색... (NVDA, 금리, 반도체)"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%", padding: "12px 16px 12px 44px", borderRadius: 12,
+                background: C.card, border: `1px solid ${searchMode ? C.green : C.border}`,
+                color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box",
+              }}
+            />
+            {searchQuery && (
+              <button onClick={() => { setSearchQuery(""); setSearchMode(false); setSearchResults([]); }}
+                style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* Date direct input */}
+          <form onSubmit={handleDateInput} style={{ display: "flex", gap: 6, alignItems: "flex-start", flex: "0 0 auto" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="date"
+                  value={dateInput}
+                  onChange={e => { setDateInput(e.target.value); setDateInputError(""); }}
+                  max={new Date().toISOString().split("T")[0]}
+                  style={{
+                    padding: "12px 12px", borderRadius: 12, background: C.card,
+                    border: `1px solid ${dateInputError ? C.red : C.border}`,
+                    color: C.text, fontSize: 13, outline: "none",
+                    colorScheme: "dark",
+                  }}
+                />
+                <button type="submit"
+                  style={{ padding: "12px 16px", borderRadius: 12, background: `${C.blue}20`, border: `1px solid ${C.blue}40`, color: C.blue, fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  날짜로 이동
+                </button>
+              </div>
+              {dateInputError && <span style={{ fontSize: 11, color: C.red, paddingLeft: 4 }}>{dateInputError}</span>}
+            </div>
+          </form>
         </div>
       </div>
 
@@ -321,10 +379,13 @@ export default function BriefingsPage() {
             <span style={{ fontSize: 12, color: C.muted }}>/</span>
             <span style={{ fontSize: 13, color: C.muted }}>브리핑 아카이브</span>
           </div>
-          <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
-            style={{ padding: "8px 18px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-            텔레그램 구독
-          </a>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <NavSearch />
+            <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+              style={{ padding: "8px 18px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+              텔레그램 구독
+            </a>
+          </div>
         </div>
       </nav>
 

@@ -424,9 +424,17 @@ def subscriber_count():
 
 @app.get("/summary/latest")
 def get_latest_summary():
-    if not _last_summary:
-        return {"message": "아직 생성된 요약이 없습니다."}
-    return _last_summary
+    if _last_summary:
+        return _last_summary
+    # 메모리에 없으면 파일에서 최신 브리핑 로드 (재시작 후 복구)
+    try:
+        from briefing_history import get_latest_briefing
+        date, tweets = get_latest_briefing()
+        if date and tweets:
+            return {"date": date, "tweets": tweets, "restored": True}
+    except Exception:
+        pass
+    return {"message": "아직 생성된 요약이 없습니다."}
 
 
 @app.post("/summary/run")
