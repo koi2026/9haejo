@@ -30,6 +30,10 @@ interface StockData {
   week52_low?: number;
   volume?: number;
   avg_volume?: number;
+  div_yield?: number;
+  div_rate?: number;
+  payout_ratio?: number;
+  ex_div_date?: string;
 }
 
 function StatRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
@@ -259,6 +263,9 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 <StatRow label="PER" value={data.pe_ratio ? data.pe_ratio.toFixed(1) + "x" : "N/A"} />
                 <StatRow label="52주 최고" value={data.week52_high ? `$${data.week52_high.toFixed(2)}` : "N/A"} />
                 <StatRow label="52주 최저" value={data.week52_low ? `$${data.week52_low.toFixed(2)}` : "N/A"} />
+                {data.div_yield !== undefined && data.div_yield !== null && data.div_yield > 0 && (
+                  <StatRow label="배당수익률" value={`${data.div_yield.toFixed(2)}%`} highlight />
+                )}
               </div>
               <div style={{ padding: "20px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}` }}>
                 <p style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 12 }}>VOLUME</p>
@@ -273,6 +280,37 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 )}
               </div>
             </div>
+
+            {/* Dividend Info */}
+            {data.div_yield && data.div_yield > 0.5 && (
+              <div style={{ padding: "16px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.green}30`, marginBottom: 20 }}>
+                <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 2, marginBottom: 12 }}>💰 DIVIDEND</p>
+                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  <div style={{ flex: "1 1 120px" }}>
+                    <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>배당수익률</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: C.green, fontFamily: "monospace" }}>{data.div_yield.toFixed(2)}%</div>
+                  </div>
+                  {data.div_rate && (
+                    <div style={{ flex: "1 1 120px" }}>
+                      <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>연간 배당금</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>${data.div_rate.toFixed(2)}</div>
+                    </div>
+                  )}
+                  {data.payout_ratio && (
+                    <div style={{ flex: "1 1 120px" }}>
+                      <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>배당성향</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: data.payout_ratio > 80 ? C.red : C.text, fontFamily: "monospace" }}>{data.payout_ratio.toFixed(0)}%</div>
+                    </div>
+                  )}
+                  {data.ex_div_date && (
+                    <div style={{ flex: "1 1 120px" }}>
+                      <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>배당락일</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>{data.ex_div_date}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Technical Indicators */}
             {technicals && (

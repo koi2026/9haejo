@@ -863,6 +863,26 @@ def stock_detail(ticker: str):
     except Exception:
         name, sector, pe, mktcap, h52, l52, volume, avg_vol = ticker, "", None, None, None, None, None, None
 
+    # 배당 정보
+    div_yield = None
+    div_rate = None
+    payout_ratio = None
+    ex_div_date = None
+    try:
+        info_div = yf.Ticker(ticker).info or {}
+        dv = info_div.get("dividendYield")
+        dr = info_div.get("dividendRate")
+        pr = info_div.get("payoutRatio")
+        edd = info_div.get("exDividendDate")
+        div_yield = round(dv * 100, 2) if dv else None
+        div_rate = round(dr, 4) if dr else None
+        payout_ratio = round(pr * 100, 1) if pr else None
+        if edd and isinstance(edd, (int, float)):
+            from datetime import datetime
+            ex_div_date = datetime.fromtimestamp(edd).strftime("%Y-%m-%d")
+    except Exception:
+        pass
+
     # AI 분석
     analysis = ""
     try:
@@ -889,6 +909,10 @@ Write 3-4 sentences: (1) current momentum, (2) key risk/opportunity, (3) what Ko
         "volume": volume,
         "avg_volume": avg_vol,
         "analysis": analysis,
+        "div_yield": div_yield,
+        "div_rate": div_rate,
+        "payout_ratio": payout_ratio,
+        "ex_div_date": ex_div_date,
     }
     analysis_cache.set(cache_key, result)
     return result

@@ -1695,6 +1695,10 @@ export default function Home() {
                   <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>텔레그램 봇</a>
                   <a href="#subscribe" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>구독하기</a>
                   <a href="/briefings" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>브리핑 아카이브</a>
+                  <a href="/news" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>뉴스 분석</a>
+                  <a href="/compare" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>종목 비교</a>
+                  <a href="/watchlist" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>관심종목</a>
+                  <a href="/alerts" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>가격 알림</a>
                 </div>
               </div>
               <div>
