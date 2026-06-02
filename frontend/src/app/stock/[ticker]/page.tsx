@@ -109,6 +109,13 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     quarters: string[]; eps: (number | null)[]; revenue: (number | null)[];
     ttm_eps?: number | null; forward_eps?: number | null;
   } | null>(null);
+  const [grade, setGrade] = useState<{
+    grade: string; grade_label: string; grade_color: string;
+    total_score: number; scores: Record<string, number>;
+    ai_comment: string; grade_descriptions: Record<string, string>;
+  } | null>(null);
+  const [showGradeDetail, setShowGradeDetail] = useState(false);
+  const [beginnerMode, setBeginnerMode] = useState(false);
 
   const fetchQuote = () => {
     fetch(`${API}/stock/${upperTicker}`)
@@ -147,6 +154,11 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     fetch(`${API}/stock/${upperTicker}/peers`)
       .then(r => r.json())
       .then(d => { if (d.peers?.length) { setPeers(d.peers); setPeerSector(d.sector || ""); } })
+      .catch(() => {});
+    // 주식 건강 점수
+    fetch(`${API}/stock/${upperTicker}/grade`)
+      .then(r => r.json())
+      .then(d => { if (d.grade) setGrade(d); })
       .catch(() => {});
     // 재무 데이터 (EPS·매출)
     fetch(`${API}/stock/${upperTicker}/financials`)
@@ -309,6 +321,104 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 </div>
               </div>
             </div>
+
+            {/* 주식 건강 점수 카드 */}
+            {grade && (
+              <div style={{ marginBottom: 20, borderRadius: 20, background: C.card, border: `1px solid ${grade.grade_color}30`, overflow: "hidden" }}>
+                {/* 상단: 등급 + 요약 */}
+                <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "20px 24px", flexWrap: "wrap" }}>
+                  {/* 대형 등급 배지 */}
+                  <div style={{
+                    width: 80, height: 80, borderRadius: 20, flexShrink: 0,
+                    background: `${grade.grade_color}18`, border: `2px solid ${grade.grade_color}60`,
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    boxShadow: `0 0 24px ${grade.grade_color}20`,
+                  }}>
+                    <div style={{ fontSize: 36, fontWeight: 900, color: grade.grade_color, lineHeight: 1 }}>{grade.grade}</div>
+                    <div style={{ fontSize: 9, color: grade.grade_color, fontFamily: "monospace", letterSpacing: 1, marginTop: 2 }}>등급</div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                      <span style={{ fontSize: 18, fontWeight: 900, color: grade.grade_color }}>{grade.grade_label}</span>
+                      <span style={{ fontSize: 12, color: C.muted, fontFamily: "monospace" }}>{grade.total_score}/100점</span>
+                      <button
+                        onClick={() => setBeginnerMode(m => !m)}
+                        style={{ padding: "2px 10px", borderRadius: 20, border: `1px solid ${C.blue}40`, background: beginnerMode ? `${C.blue}20` : "transparent", color: C.blue, fontSize: 10, cursor: "pointer", fontWeight: 700 }}
+                      >
+                        {beginnerMode ? "✓ 초보자 설명 ON" : "초보자 설명"}
+                      </button>
+                    </div>
+                    <p style={{ fontSize: 13, color: C.muted, margin: 0, lineHeight: 1.6 }}>{grade.ai_comment}</p>
+                  </div>
+                  {/* 점수 바 */}
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    {Object.entries(grade.scores).map(([key, score]) => (
+                      <div key={key} style={{ textAlign: "center", minWidth: 52 }}>
+                        <div style={{ height: 40, display: "flex", alignItems: "flex-end", justifyContent: "center", marginBottom: 4 }}>
+                          <div style={{
+                            width: 22, height: `${score}%`, minHeight: 4,
+                            background: score >= 70 ? C.green : score >= 50 ? "#f59e0b" : C.red,
+                            borderRadius: "4px 4px 0 0", opacity: 0.85,
+                            transition: "height 0.8s ease",
+                          }} />
+                        </div>
+                        <div style={{ fontSize: 9, color: C.muted, lineHeight: 1.2 }}>{key}</div>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: score >= 70 ? C.green : score >= 50 ? "#f59e0b" : C.red }}>{score}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => setShowGradeDetail(v => !v)}
+                    style={{ fontSize: 12, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 8px" }}>
+                    {showGradeDetail ? "▲" : "▼"} 상세
+                  </button>
+                </div>
+
+                {/* 초보자 설명 모드 */}
+                {beginnerMode && (
+                  <div style={{ borderTop: `1px solid ${C.border}`, padding: "16px 24px", background: `${C.blue}05`, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+                    {Object.entries(grade.grade_descriptions).map(([key, desc]) => {
+                      const score = grade.scores[key] ?? 50;
+                      const emoji = score >= 70 ? "🟢" : score >= 50 ? "🟡" : "🔴";
+                      return (
+                        <div key={key} style={{ padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}` }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 4 }}>{emoji} {key} <span style={{ fontFamily: "monospace", color: score >= 70 ? C.green : score >= 50 ? "#f59e0b" : C.red }}>{score}점</span></div>
+                          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{desc}</div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ padding: "10px 14px", borderRadius: 10, background: `${C.blue}10`, border: `1px solid ${C.blue}30`, gridColumn: "1/-1" }}>
+                      <div style={{ fontSize: 11, color: C.blue, lineHeight: 1.6 }}>
+                        💡 <strong>A~B</strong>: 여러 지표가 긍정적 &nbsp;|&nbsp; <strong>C</strong>: 뚜렷한 방향 없음 &nbsp;|&nbsp; <strong>D~F</strong>: 주의 필요
+                        <br />⚠️ 이 점수는 AI 분석이며 투자 권유가 아닙니다.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 상세 점수 (토글) */}
+                {showGradeDetail && !beginnerMode && (
+                  <div style={{ borderTop: `1px solid ${C.border}`, padding: "14px 24px" }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {Object.entries(grade.scores).map(([key, score]) => {
+                        const col = score >= 70 ? C.green : score >= 50 ? "#f59e0b" : C.red;
+                        return (
+                          <div key={key} style={{ flex: "1 1 140px", padding: "12px 14px", borderRadius: 10, background: C.surface, border: `1px solid ${col}30` }}>
+                            <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{key}</div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ height: 4, flex: 1, borderRadius: 2, background: C.border, marginRight: 8 }}>
+                                <div style={{ height: "100%", width: `${score}%`, borderRadius: 2, background: col }} />
+                              </div>
+                              <span style={{ fontSize: 14, fontWeight: 900, color: col, fontFamily: "monospace" }}>{score}</span>
+                            </div>
+                            <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>{grade.grade_descriptions[key]}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Stats grid */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>

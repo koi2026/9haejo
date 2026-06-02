@@ -1144,6 +1144,171 @@ def stock_peers(ticker: str):
     return result
 
 
+@app.get("/stock/{ticker}/grade")
+def stock_grade(ticker: str):
+    """주식 건강 점수 A-F (초보자용 종합 지표, 10분 캐시)"""
+    from cache import analysis_cache
+    ticker = ticker.upper().strip()
+    cache_key = f"grade:{ticker}"
+    cached = analysis_cache.get(cache_key)
+    if cached:
+        return cached
+
+    scores = {}  # 각 항목 0-100점
+
+    # 1. 기술적 지표 (RSI, MA, 추세) — 40점 비중
+    try:
+        import requests as _req
+        base = "http://localhost:8000"
+        # 내부 호출 대신 직접 계산
+        import yfinance as yf
+        from collector import yf_quote
+        t = yf.Ticker(ticker)
+        hist = t.history(period="60d")
+        if not hist.empty and len(hist) >= 20:
+            close = hist["Close"]
+            # RSI
+            delta = close.diff()
+            gain = delta.clip(lower=0).rolling(14).mean()
+            loss = (-delta.clip(upper=0)).rolling(14).mean()
+            rs = gain / loss.replace(0, 0.001)
+            rsi = float(100 - (100 / (1 + rs.iloc[-1])))
+            # RSI score: 40-60 = 중립, 50 = 완벽
+            if 45 <= rsi <= 60:
+                rsi_score = 90
+            elif 35 <= rsi < 45 or 60 < rsi <= 70:
+                rsi_score = 65
+            elif 25 <= rsi < 35 or 70 < rsi <= 80:
+                rsi_score = 35
+            else:
+                rsi_score = 10
+            # MA20
+            ma20 = float(close.rolling(20).mean().iloc[-1])
+            above_ma20 = float(close.iloc[-1]) > ma20
+            ma_score = 80 if above_ma20 else 30
+            # MA50
+            if len(close) >= 50:
+                ma50 = float(close.rolling(50).mean().iloc[-1])
+                above_ma50 = float(close.iloc[-1]) > ma50
+                ma_score = (ma_score + (80 if above_ma50 else 30)) / 2
+            scores["기술지표"] = int((rsi_score * 0.5 + ma_score * 0.5))
+        else:
+            scores["기술지표"] = 50
+    except Exception as e:
+        logger.warning("grade tech %s: %s", ticker, e)
+        scores["기술지표"] = 50
+
+    # 2. 애널리스트 컨센서스 — 30점 비중
+    try:
+        t = yf.Ticker(ticker)
+        info = t.info or {}
+        rec = info.get("recommendationMean", 3.0)  # 1=strong buy, 5=strong sell
+        # 1→100, 5→0
+        analyst_score = max(0, min(100, int((5 - rec) / 4 * 100)))
+        # 업사이드 추가 보정
+        target = info.get("targetMeanPrice")
+        price = info.get("currentPrice") or info.get("regularMarketPrice")
+        if target and price and price > 0:
+            upside = (target - price) / price * 100
+            upside_bonus = min(20, max(-20, upside / 2))
+            analyst_score = max(0, min(100, analyst_score + int(upside_bonus)))
+        scores["애널리스트"] = analyst_score
+    except Exception as e:
+        logger.warning("grade analyst %s: %s", ticker, e)
+        scores["애널리스트"] = 50
+
+    # 3. 밸류에이션 (PER 섹터 대비) — 20점 비중
+    try:
+        pe = info.get("trailingPE") or info.get("forwardPE")
+        sector = info.get("sector", "")
+        SECTOR_AVG_PE = {
+            "Technology": 28, "Communication Services": 22, "Consumer Cyclical": 25,
+            "Healthcare": 20, "Financial Services": 16, "Energy": 12,
+            "Industrials": 20, "Consumer Defensive": 18, "Utilities": 16,
+            "Basic Materials": 14, "Real Estate": 25,
+        }
+        avg_pe = SECTOR_AVG_PE.get(sector, 22)
+        if pe and pe > 0:
+            ratio = pe / avg_pe
+            if ratio < 0.8: val_score = 90      # 저평가
+            elif ratio < 1.1: val_score = 70    # 적정
+            elif ratio < 1.5: val_score = 50    # 약간 고평가
+            elif ratio < 2.0: val_score = 30    # 고평가
+            else: val_score = 10                # 매우 고평가
+        else:
+            val_score = 50
+        scores["밸류에이션"] = val_score
+    except Exception:
+        scores["밸류에이션"] = 50
+
+    # 4. 52주 모멘텀 — 10점 비중
+    try:
+        q = yf_quote(ticker)
+        h52 = info.get("fiftyTwoWeekHigh")
+        l52 = info.get("fiftyTwoWeekLow")
+        if h52 and l52 and q and h52 > l52:
+            pos = (q["price"] - l52) / (h52 - l52) * 100
+            mom_score = min(100, int(pos))
+        else:
+            mom_score = 50
+        scores["모멘텀"] = mom_score
+    except Exception:
+        scores["모멘텀"] = 50
+
+    # 종합 점수 계산 (가중평균)
+    total = (
+        scores.get("기술지표", 50) * 0.35 +
+        scores.get("애널리스트", 50) * 0.35 +
+        scores.get("밸류에이션", 50) * 0.20 +
+        scores.get("모멘텀", 50) * 0.10
+    )
+
+    if total >= 80: grade, grade_label, grade_color = "A", "매우 양호", "#00d97e"
+    elif total >= 65: grade, grade_label, grade_color = "B", "양호", "#22c55e"
+    elif total >= 50: grade, grade_label, grade_color = "C", "보통", "#f59e0b"
+    elif total >= 35: grade, grade_label, grade_color = "D", "주의", "#f97316"
+    else: grade, grade_label, grade_color = "F", "위험", "#ff4466"
+
+    # 초보자용 1줄 AI 코멘트 (캐시 활용)
+    ai_comment = ""
+    try:
+        from stock_analyzer import claude_call
+        prompt = (
+            f"주식 {ticker}의 현재 상태를 투자 초보자도 이해할 수 있는 한국어 1문장으로 설명해줘. "
+            f"데이터: 종합점수={total:.0f}/100, 등급={grade}({grade_label}), "
+            f"RSI={scores.get('기술지표',50)}/100, 애널리스트={scores.get('애널리스트',50)}/100. "
+            f"주의: 투자 권유 아님, 단순 현황 설명. 30자 이내."
+        )
+        ai_comment = claude_call(prompt, max_tokens=80)
+    except Exception:
+        comments = {
+            "A": f"기술·애널리스트·모멘텀 모두 긍정적인 상태입니다.",
+            "B": f"전반적으로 안정적인 흐름을 보이고 있습니다.",
+            "C": f"뚜렷한 방향성 없이 보합 흐름입니다.",
+            "D": f"일부 지표가 약화되어 주의가 필요합니다.",
+            "F": f"여러 지표가 부정적 — 신중한 접근이 필요합니다.",
+        }
+        ai_comment = comments.get(grade, "")
+
+    result = {
+        "ticker": ticker,
+        "grade": grade,
+        "grade_label": grade_label,
+        "grade_color": grade_color,
+        "total_score": round(total, 1),
+        "scores": scores,
+        "ai_comment": ai_comment,
+        "grade_descriptions": {
+            "기술지표": "RSI·이동평균선 등 차트 신호 종합",
+            "애널리스트": "월가 전문가 목표주가·투자의견 반영",
+            "밸류에이션": "현재 주가가 적정 수준인지 PER 기반 평가",
+            "모멘텀": "52주 고/저가 대비 현재 위치 (상승 탄력)",
+        }
+    }
+    analysis_cache.set(cache_key, result)
+    return result
+
+
 @app.get("/market/live")
 def market_live():
     """실시간 시장 데이터 (지수·환율·공포탐욕·빅테크) -- 프론트 위젯용"""
