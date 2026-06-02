@@ -11,7 +11,7 @@ export default async function Image() {
   let bullishCount = 0, bearishCount = 0;
 
   try {
-    const r = await fetch(`${API}/news/latest`, { next: { revalidate: 300 } });
+    const r = await fetch(`${API}/news/latest`, { next: { revalidate: 300 }, signal: AbortSignal.timeout(3000) });
     const d = await r.json();
     const items = (d.news || []).slice(0, 5);
     news = items.map((n: { title?: string; sentiment?: string }) => ({ title: n.title || "", sentiment: n.sentiment || "Neutral" }));

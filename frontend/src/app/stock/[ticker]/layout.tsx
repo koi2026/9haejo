@@ -8,7 +8,10 @@ export async function generateMetadata({ params }: { params: { ticker: string } 
   let description = `${ticker} 실시간 주가 + Claude AI 분석`;
 
   try {
-    const r = await fetch(`${API}/stock/quote/${ticker}`, { next: { revalidate: 60 } });
+    const r = await fetch(`${API}/stock/quote/${ticker}`, {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(3000),
+    });
     const d = await r.json();
     if (!d.error) {
       const pct = d.change_pct ?? 0;

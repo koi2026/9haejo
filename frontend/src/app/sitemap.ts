@@ -32,7 +32,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Briefing history pages
   let briefing_pages: MetadataRoute.Sitemap = [];
   try {
-    const r = await fetch(`${API}/summary/history`, { next: { revalidate: 3600 } });
+    const r = await fetch(`${API}/summary/history`, { next: { revalidate: 3600 }, signal: AbortSignal.timeout(4000) });
     const d = await r.json();
     const dates: string[] = (d.dates || []).slice(0, 60);
     briefing_pages = dates.map(date => ({

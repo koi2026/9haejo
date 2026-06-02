@@ -14,14 +14,14 @@ function escapeXml(str: string): string {
 
 export async function GET() {
   try {
-    const r = await fetch(`${API}/summary/history`, { next: { revalidate: 3600 } });
+    const r = await fetch(`${API}/summary/history`, { next: { revalidate: 3600 }, signal: AbortSignal.timeout(5000) });
     const data = await r.json();
     const dates: string[] = data.dates || [];
 
     const items = await Promise.all(
       dates.slice(0, 20).map(async (date) => {
         try {
-          const br = await fetch(`${API}/summary/history/${date}`, { next: { revalidate: 3600 } });
+          const br = await fetch(`${API}/summary/history/${date}`, { next: { revalidate: 3600 }, signal: AbortSignal.timeout(4000) });
           const bd = await br.json();
           const tweets: string[] = bd.tweets || [];
           const content = tweets.join("\n\n");
