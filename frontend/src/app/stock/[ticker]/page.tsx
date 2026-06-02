@@ -420,6 +420,139 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
               </div>
             )}
 
+            {/* ===== EPISODE 6: AI 투자 코치 ===== */}
+            {grade && data && (() => {
+              const score = grade.total_score;
+              const ba = score >= 75
+                ? { icon: "✅", text: "지금 살 만합니다. 여러 지표가 긍정적이에요.", color: C.green }
+                : score >= 55
+                ? { icon: "🟡", text: "애매한 타이밍이에요. 조금 더 기다려볼 수 있어요.", color: "#f59e0b" }
+                : score >= 40
+                ? { icon: "⚠️", text: "조심할 필요가 있어요. 지표들이 혼재됩니다.", color: "#f59e0b" }
+                : { icon: "🚫", text: "지금은 피하는 게 나을 것 같아요. 지표가 좋지 않아요.", color: C.red };
+              const worstCats = Object.entries(grade.scores).sort(([,a],[,b])=>a-b).slice(0,2);
+              const buyPct = analyst ? ((analyst.strong_buy + analyst.buy) / Math.max(analyst.total,1)) * 100 : 0;
+              const holdPct = analyst ? (analyst.hold / Math.max(analyst.total,1)) * 100 : 0;
+              const sellPct = analyst ? ((analyst.sell + analyst.strong_sell) / Math.max(analyst.total,1)) * 100 : 0;
+              const consLabel = !analyst ? "데이터 없음" : buyPct >= 60 ? "강력 매수" : buyPct >= 40 ? "매수" : holdPct >= 40 ? "보유" : "매도";
+              const consColor = !analyst ? C.muted : buyPct >= 50 ? C.green : holdPct >= 50 ? "#f59e0b" : C.red;
+              const reward = analyst?.mean_target ? analyst.mean_target - data.price : (data.week52_high ?? data.price) - data.price;
+              const risk = data.week52_low ? data.price - data.week52_low : data.price * 0.1;
+              const rr = risk > 0 ? reward / risk : null;
+              const rrColor = rr === null ? C.muted : rr >= 2 ? C.green : rr >= 1 ? "#f59e0b" : C.red;
+              const [coachMode, setCoachMode] = [beginnerMode ? "beginner" : showGradeDetail ? "advanced" : "intermediate", (m: string) => {
+                setBeginnerMode(m === "beginner"); setShowGradeDetail(m === "advanced");
+              }];
+              const tabs = [["beginner","초보자"],["intermediate","중수"],["advanced","고수"]];
+              return (
+                <div style={{ marginBottom: 20, borderRadius: 20, background: "linear-gradient(135deg,#111120 0%,#0d0d1a 100%)", border: `1px solid ${C.blue}40`, padding: 24, boxShadow: `0 0 40px ${C.blue}08` }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 18 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>🤖</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>AI 투자 코치</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 4, background: C.bg, borderRadius: 10, padding: 3 }}>
+                      {tabs.map(([key, label]) => (
+                        <button key={key} onClick={() => setCoachMode(key)}
+                          style={{ padding: "5px 12px", borderRadius: 7, fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", transition: "all 0.15s", background: coachMode === key ? C.blue : "transparent", color: coachMode === key ? "#07070f" : C.muted }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* BEGINNER */}
+                  {coachMode === "beginner" && (
+                    <div>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 14 }}>이 종목, 지금 사기 좋을까요?</div>
+                      <div style={{ background: `${ba.color}12`, border: `1px solid ${ba.color}30`, borderRadius: 14, padding: "14px 18px", fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.7, marginBottom: 14 }}>
+                        {ba.icon} {ba.text}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {worstCats.map(([key, sc]) => (
+                          <div key={key} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+                            <span style={{ color: sc >= 50 ? "#f59e0b" : C.red, fontWeight: 700, flexShrink: 0 }}>{sc >= 50 ? "⚠️" : "🔴"} {key}:</span>
+                            <span>{grade.grade_descriptions[key]}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* INTERMEDIATE */}
+                  {coachMode === "intermediate" && (
+                    <div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                        <div style={{ padding: 14, borderRadius: 12, background: C.card, border: `1px solid ${C.border}` }}>
+                          <div style={{ fontSize: 10, color: C.muted, fontFamily: "monospace", letterSpacing: 1, marginBottom: 10 }}>지지 / 저항선</div>
+                          {data.week52_high && <div style={{ marginBottom: 6 }}><div style={{ fontSize: 9, color: C.red, marginBottom: 2 }}>저항 (52주 최고)</div><div style={{ fontSize: 17, fontWeight: 900, color: C.red, fontFamily: "monospace" }}>${data.week52_high.toFixed(2)}</div></div>}
+                          {data.week52_low && data.week52_high && (
+                            <div style={{ height: 4, borderRadius: 2, background: `linear-gradient(90deg,${C.red},${C.green})`, margin: "8px 0", position: "relative" }}>
+                              <div style={{ position: "absolute", top: -4, left: `calc(${Math.min(100,Math.max(0,((data.price-data.week52_low)/(data.week52_high-data.week52_low))*100))}% - 6px)`, width: 12, height: 12, borderRadius: "50%", background: C.blue, border: "2px solid #07070f" }} />
+                            </div>
+                          )}
+                          {technicals?.ma20 && <div><div style={{ fontSize: 9, color: C.green, marginBottom: 2 }}>지지 (MA20)</div><div style={{ fontSize: 17, fontWeight: 900, color: C.green, fontFamily: "monospace" }}>${technicals.ma20.toFixed(2)}</div></div>}
+                        </div>
+                        <div style={{ padding: 14, borderRadius: 12, background: C.card, border: `1px solid ${C.border}` }}>
+                          <div style={{ fontSize: 10, color: C.muted, fontFamily: "monospace", letterSpacing: 1, marginBottom: 10 }}>애널리스트 의견</div>
+                          {analyst && analyst.total > 0 ? (
+                            <>
+                              <div style={{ fontSize: 17, fontWeight: 900, color: consColor, marginBottom: 8 }}>{consLabel}</div>
+                              <div style={{ display: "flex", height: 5, borderRadius: 3, overflow: "hidden", gap: 1, marginBottom: 8 }}>
+                                <div style={{ width: `${buyPct}%`, background: C.green }} />
+                                <div style={{ width: `${holdPct}%`, background: "#f59e0b" }} />
+                                <div style={{ width: `${sellPct}%`, background: C.red }} />
+                              </div>
+                              {analyst.mean_target && analyst.upside_pct !== null && (
+                                <div style={{ fontSize: 12, color: (analyst.upside_pct ?? 0) > 0 ? C.green : C.red, fontWeight: 700 }}>목표주가 ${analyst.mean_target.toFixed(0)} → {(analyst.upside_pct ?? 0) > 0 ? "+" : ""}{(analyst.upside_pct ?? 0).toFixed(1)}%</div>
+                              )}
+                            </>
+                          ) : <div style={{ fontSize: 12, color: C.muted }}>애널리스트 데이터 없음</div>}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}` }}>
+                        현재 기술적 지지선은 {technicals?.ma20 ? `$${technicals.ma20.toFixed(2)}` : "N/A"}이며{analyst?.mean_target ? `, 애널리스트 평균 목표가는 $${analyst.mean_target.toFixed(2)}입니다.` : "."}
+                      </div>
+                    </div>
+                  )}
+                  {/* ADVANCED */}
+                  {coachMode === "advanced" && (
+                    <div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 14 }}>
+                        <div style={{ padding: "12px 10px", borderRadius: 12, background: C.card, border: `1px solid ${rrColor}30`, textAlign: "center" }}>
+                          <div style={{ fontSize: 9, color: C.muted, fontFamily: "monospace", letterSpacing: 1, marginBottom: 5 }}>리스크/리워드</div>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: rrColor, fontFamily: "monospace" }}>{rr !== null ? `1:${rr.toFixed(1)}` : "N/A"}</div>
+                          <div style={{ fontSize: 9, color: C.muted, marginTop: 3 }}>{rr === null ? "" : rr >= 2 ? "좋은 비율" : rr >= 1 ? "보통" : "불리"}</div>
+                        </div>
+                        {technicals && (
+                          <div style={{ padding: "12px 10px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, textAlign: "center" }}>
+                            <div style={{ fontSize: 9, color: C.muted, fontFamily: "monospace", letterSpacing: 1, marginBottom: 5 }}>모멘텀</div>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: technicals.rsi > 70 ? C.red : technicals.rsi < 30 ? C.green : C.text, fontFamily: "monospace" }}>RSI {technicals.rsi}</div>
+                            <div style={{ fontSize: 10, color: technicals.macd && technicals.macd > 0 ? C.green : C.red, fontWeight: 700, marginTop: 3 }}>MACD {technicals.macd_signal}</div>
+                          </div>
+                        )}
+                        {data.week52_low && data.week52_high && technicals && (
+                          <div style={{ padding: "12px 10px", borderRadius: 12, background: C.card, border: `1px solid ${technicals.vol_spike ? "#f59e0b30" : C.border}`, textAlign: "center" }}>
+                            <div style={{ fontSize: 9, color: C.muted, fontFamily: "monospace", letterSpacing: 1, marginBottom: 5 }}>변동성</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{(((data.week52_high-data.week52_low)/data.week52_low)*100).toFixed(0)}% 레인지</div>
+                            <div style={{ fontSize: 10, color: technicals.vol_spike ? "#f59e0b" : C.muted, marginTop: 3 }}>거래량 {technicals.vol_ratio}x{technicals.vol_spike ? " ⚡" : ""}</div>
+                          </div>
+                        )}
+                      </div>
+                      {technicals && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}><span style={{ color: technicals.above_ma20 ? C.green : C.red, fontWeight: 700 }}>• MA20 {technicals.above_ma20 ? "상향 돌파" : "하향 이탈"}</span> — 단기 {technicals.above_ma20 ? "긍정적" : "부정적"} 신호</div>
+                          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}><span style={{ color: technicals.macd && technicals.macd > 0 ? C.green : C.red, fontWeight: 700 }}>• MACD {technicals.macd_signal} 신호</span> — {technicals.macd && technicals.macd > 0 ? "상승" : "하락"} 모멘텀</div>
+                          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}><span style={{ color: technicals.rsi > 70 ? C.red : technicals.rsi < 30 ? C.green : "#f59e0b", fontWeight: 700 }}>• RSI {technicals.rsi}</span> — {technicals.rsi > 70 ? "과매수 — 단기 조정 가능" : technicals.rsi < 30 ? "과매도 — 반등 가능성" : "중립 구간"}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, marginTop: 14, fontSize: 10, color: C.muted }}>
+                    ⚠️ 이 내용은 AI 분석이며 투자 권유가 아닙니다. 투자 결정은 본인의 판단으로 하세요.
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Stats grid */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
               <div style={{ padding: "20px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}` }}>

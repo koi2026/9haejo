@@ -1318,6 +1318,7 @@ def market_live():
         "NASDAQ": yf_quote("^IXIC"),
         "DOW": yf_quote("^DJI"),
         "VIX": yf_quote("^VIX"),
+        "KOSPI": yf_quote("^KS11"),
     }
     fx = {
         "USD/KRW": yf_quote("KRW=X"),
