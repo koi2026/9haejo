@@ -917,6 +917,71 @@ Write 3-4 sentences: (1) current momentum, (2) key risk/opportunity, (3) what Ko
     return result
 
 
+@app.get("/stock/{ticker}/financials")
+def stock_financials(ticker: str):
+    """분기별 EPS·매출 히스토리 (yfinance, 1시간 캐시)"""
+    import yfinance as yf
+    from cache import analysis_cache
+    ticker = ticker.upper().strip()
+    cache_key = f"financials:{ticker}"
+    cached = analysis_cache.get(cache_key)
+    if cached:
+        return cached
+    try:
+        t = yf.Ticker(ticker)
+        result = {"ticker": ticker, "quarters": [], "eps": [], "revenue": []}
+
+        # quarterly_income_stmt (yfinance 1.x)
+        try:
+            stmt = t.quarterly_income_stmt
+            if stmt is not None and not stmt.empty:
+                # Columns are dates (most recent first), rows are metrics
+                cols = list(stmt.columns)[:8]  # last 8 quarters
+                rev_idx = next((r for r in stmt.index if "Total Revenue" in str(r) or "Revenue" in str(r)), None)
+                eps_idx = next((r for r in stmt.index if "Diluted EPS" in str(r) or "Basic EPS" in str(r) or "EPS" in str(r)), None)
+
+                quarters, revenues, epss = [], [], []
+                for col in reversed(cols):  # oldest first
+                    label = col.strftime("%y Q%q") if hasattr(col, 'strftime') else str(col)[:7]
+                    # Pandas quarter format
+                    try:
+                        import pandas as pd
+                        dt = pd.Timestamp(col)
+                        q_num = (dt.month - 1) // 3 + 1
+                        label = f"{dt.strftime('%y')} Q{q_num}"
+                    except Exception:
+                        pass
+                    quarters.append(label)
+                    rev = float(stmt.loc[rev_idx, col]) / 1e9 if rev_idx and not stmt.loc[rev_idx, col] != stmt.loc[rev_idx, col] else None
+                    eps_val = float(stmt.loc[eps_idx, col]) if eps_idx and not stmt.loc[eps_idx, col] != stmt.loc[eps_idx, col] else None
+                    revenues.append(round(rev, 2) if rev else None)
+                    epss.append(round(eps_val, 2) if eps_val is not None else None)
+
+                result["quarters"] = quarters
+                result["revenue"] = revenues  # in billions
+                result["eps"] = epss
+        except Exception as e:
+            logger.warning("financials stmt %s: %s", ticker, e)
+
+        # Fallback: basic info EPS
+        if not result["eps"]:
+            try:
+                info = t.info or {}
+                ttm_eps = info.get("trailingEps")
+                fwd_eps = info.get("forwardEps")
+                if ttm_eps or fwd_eps:
+                    result["ttm_eps"] = ttm_eps
+                    result["forward_eps"] = fwd_eps
+            except Exception:
+                pass
+
+        analysis_cache.set(cache_key, result, ttl=3600)
+        return result
+    except Exception as e:
+        logger.warning("stock_financials %s: %s", ticker, e)
+        return {"ticker": ticker, "quarters": [], "eps": [], "revenue": [], "error": str(e)}
+
+
 @app.get("/stock/{ticker}/news")
 def stock_news(ticker: str):
     """종목별 최신 뉴스 (Alpha Vantage, 15분 캐시)"""
