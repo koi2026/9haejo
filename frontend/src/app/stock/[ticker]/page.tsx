@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import NavSearch from "@/components/NavSearch";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
@@ -212,10 +213,13 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
             <span style={{ fontSize: 12, color: C.muted }}>/</span>
             <span style={{ fontSize: 13, color: C.muted, fontFamily: "monospace" }}>{upperTicker}</span>
           </div>
-          <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
-            style={{ padding: "8px 18px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-            봇에서 분석하기
-          </a>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <NavSearch />
+            <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+              style={{ padding: "8px 18px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+              봇에서 분석하기
+            </a>
+          </div>
         </div>
       </nav>
 

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import NavSearch from "@/components/NavSearch";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
@@ -82,6 +83,7 @@ export default function WatchlistPage() {
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Link href="/news" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>뉴스</Link>
             <Link href="/compare" style={{ fontSize: 13, color: C.muted, textDecoration: "none" }}>비교</Link>
+            <NavSearch />
             <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
               style={{ padding: "8px 18px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
               텔레그램 봇

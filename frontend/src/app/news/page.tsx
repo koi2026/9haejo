@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import NavSearch from "@/components/NavSearch";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
