@@ -1113,28 +1113,34 @@ def personalized_ai_report(chat_id: str, watchlist: list) -> str:
     else:
         wl_section = "\n".join(wl_lines)
 
-    prompt = f"""You are a personal AI investment advisor for a Korean retail investor. Today is {today}.
-Write a personalized daily briefing in Korean. Max 600 chars total.
+    prompt = f"""You are a sharp personal AI investment advisor for a Korean retail investor. Today is {today}.
+Write a personalized daily briefing in Korean. Max 650 chars total.
 
-Structure:
-1. 시장 한줄: [one-line market summary with numbers]
-2. 내 포트폴리오: [analyze each watchlist stock with specific signal 🟢/🟡/🔴]
-3. 오늘의 액션: [1 specific actionable recommendation]
-4. 리스크: [1 key risk to watch]
+MUST include HTML bold tags for key numbers: <b>price</b>, <b>%</b>
+
+Structure (use these exact headers):
+<b>📊 시장</b>: [one-line market summary with exact S&P/QQQ numbers + interpretation]
+
+<b>📋 내 종목</b>:
+[For each watchlist stock: TICKER 🟢/🟡/🔴 $price ±X% — 1 sentence why]
+
+<b>💡 오늘의 액션</b>: [1 very specific actionable recommendation with ticker+price level]
+
+<b>⚠️ 주요 리스크</b>: [1 key risk to watch this week]
 
 Market: {market_ctx}
 My watchlist:
 {wl_section}
 
-Be specific with prices and %. Korean only."""
+Be direct, use exact numbers. Korean only. No disclaimers."""
 
     header = (
-        f"<b>🤖 나만의 AI 브리핑</b> ({today})\n\n"
-        f"<b>내 관심종목</b>:\n"
-        f"<code>{wl_section if wl_lines else '없음'}</code>\n\n"
+        f"🤖 <b>나만의 AI 브리핑</b> — {today}\n"
+        "━━━━━━━━━━━━━━━━━━━\n\n"
     )
-    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=700)
-    return header + ai + "\n\n<i>*개인화 분석 | 투자 결정은 본인 책임*</i>"
+    ai = claude_call("claude-haiku-4-5", prompt, max_tokens=750)
+    footer = "\n\n<i>관심종목: /watchlist | 알림: /알림 NVDA 200</i>"
+    return header + ai + footer
 
 
 # ── 주요 ETF 분석 ─────────────────────────────────────────────
