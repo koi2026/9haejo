@@ -918,6 +918,59 @@ Write 3-4 sentences: (1) current momentum, (2) key risk/opportunity, (3) what Ko
     return result
 
 
+@app.get("/stock/{ticker}/news")
+def stock_news(ticker: str):
+    """종목별 최신 뉴스 (Alpha Vantage, 15분 캐시)"""
+    import os, httpx
+    from cache import news_cache
+    ticker = ticker.upper().strip()
+    cache_key = f"stock_news:{ticker}"
+    cached = news_cache.get(cache_key)
+    if cached:
+        return cached
+    AV_KEY = os.getenv("ALPHA_VANTAGE_KEY", "")
+    news = []
+    try:
+        if AV_KEY:
+            r = httpx.get(
+                "https://www.alphavantage.co/query",
+                params={"function": "NEWS_SENTIMENT", "tickers": ticker, "limit": 8, "sort": "LATEST", "apikey": AV_KEY},
+                timeout=8,
+            )
+            items = r.json().get("feed", [])
+            for item in items[:8]:
+                ts = item.get("time_published", "")
+                news.append({
+                    "title": item.get("title", "")[:120],
+                    "source": item.get("source", ""),
+                    "url": item.get("url", ""),
+                    "sentiment": item.get("overall_sentiment_label", "Neutral"),
+                    "score": round(float(item.get("overall_sentiment_score", 0)), 3),
+                    "summary": item.get("summary", "")[:200],
+                    "published": ts[:8] if ts else "",
+                })
+        # Fallback: yfinance news
+        if not news:
+            import yfinance as yf
+            t = yf.Ticker(ticker)
+            yf_news = getattr(t, "news", []) or []
+            for item in yf_news[:6]:
+                news.append({
+                    "title": item.get("title", "")[:120],
+                    "source": item.get("publisher", ""),
+                    "url": item.get("link", ""),
+                    "sentiment": "Neutral",
+                    "score": 0,
+                    "summary": "",
+                    "published": "",
+                })
+    except Exception as e:
+        logger.warning("stock_news %s: %s", ticker, e)
+    result = {"ticker": ticker, "news": news}
+    news_cache.set(cache_key, result, ttl=900)
+    return result
+
+
 @app.get("/stock/{ticker}/analyst")
 def stock_analyst(ticker: str):
     """애널리스트 컨센서스 (목표주가·추천분포, 1시간 캐시)"""
