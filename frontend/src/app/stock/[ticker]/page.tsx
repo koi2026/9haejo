@@ -84,6 +84,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [sparkPrices, setSparkPrices] = useState<number[]>([]);
   const [peers, setPeers] = useState<PeerStock[]>([]);
   const [peerSector, setPeerSector] = useState("");
+  const [indices, setIndices] = useState<{ label: string; price: string; pct: number }[]>([]);
   const [chartDays, setChartDays] = useState(30);
   const [chartPrices, setChartPrices] = useState<number[]>([]);
   const [chartDates, setChartDates] = useState<string[]>([]);
@@ -100,6 +101,9 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     upside_pct: number | null; num_analysts: number | null; recommendation: string;
     strong_buy: number; buy: number; hold: number; sell: number; strong_sell: number; total: number;
   } | null>(null);
+  const [stockNews, setStockNews] = useState<{
+    title: string; source: string; url: string; sentiment: string; score: number; summary: string; published: string;
+  }[]>([]);
 
   const fetchQuote = () => {
     fetch(`${API}/stock/${upperTicker}`)
@@ -138,6 +142,25 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     fetch(`${API}/stock/${upperTicker}/peers`)
       .then(r => r.json())
       .then(d => { if (d.peers?.length) { setPeers(d.peers); setPeerSector(d.sector || ""); } })
+      .catch(() => {});
+    // 종목 뉴스
+    fetch(`${API}/stock/${upperTicker}/news`)
+      .then(r => r.json())
+      .then(d => { if (d.news?.length) setStockNews(d.news); })
+      .catch(() => {});
+    // 지수 티커 (nav 바 아래)
+    fetch(`${API}/market/live`)
+      .then(r => r.json())
+      .then(d => {
+        const items = [
+          { label: "S&P500", price: d.indices?.["S&P500"]?.price?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || "", pct: d.indices?.["S&P500"]?.change_pct ?? 0 },
+          { label: "NASDAQ", price: d.indices?.["NASDAQ"]?.price?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || "", pct: d.indices?.["NASDAQ"]?.change_pct ?? 0 },
+          { label: "DOW", price: d.indices?.["DOW"]?.price?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || "", pct: d.indices?.["DOW"]?.change_pct ?? 0 },
+          { label: "USD/KRW", price: "₩" + Math.round(d.fx?.["USD/KRW"]?.price || 0).toLocaleString("ko-KR"), pct: d.fx?.["USD/KRW"]?.change_pct ?? 0 },
+          { label: "VIX", price: (d.indices?.["VIX"]?.price || 0).toFixed(2), pct: d.indices?.["VIX"]?.change_pct ?? 0 },
+        ].filter(x => x.price);
+        setIndices(items);
+      })
       .catch(() => {});
     return () => clearInterval(refreshId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,6 +218,25 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
           </a>
         </div>
       </nav>
+
+      {/* INDICES BAR */}
+      {indices.length > 0 && (
+        <div style={{ background: "#050510", borderBottom: "1px solid #111128", overflowX: "auto", height: 34, display: "flex", alignItems: "center", scrollbarWidth: "none" }}>
+          <div style={{ display: "flex", whiteSpace: "nowrap", padding: "0 16px", gap: 0 }}>
+            {indices.map((item, i) => {
+              const up = item.pct >= 0;
+              const col = up ? C.green : C.red;
+              return (
+                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 16px", borderRight: "1px solid #111128", height: 34 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, fontFamily: "monospace" }}>{item.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: C.text, fontFamily: "monospace" }}>{item.price}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: col, fontFamily: "monospace" }}>{up ? "+" : ""}{item.pct.toFixed(2)}%</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "48px 24px" }}>
         {loading ? (
@@ -564,6 +606,56 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                           <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace" }}>${p.price.toFixed(p.price < 10 ? 3 : 2)}</div>
                         </div>
                       </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 종목 뉴스 */}
+            {stockNews.length > 0 && (
+              <div style={{ padding: "20px 24px", borderRadius: 16, background: C.surface, border: `1px solid ${C.border}`, marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2, marginBottom: 14 }}>
+                  📰 {upperTicker} LATEST NEWS
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {stockNews.slice(0, 5).map((n, i) => {
+                    const sentColor = n.sentiment === "Bullish" || n.sentiment === "Somewhat-Bullish" ? C.green
+                      : n.sentiment === "Bearish" || n.sentiment === "Somewhat-Bearish" ? C.red : C.muted;
+                    const sentLabel = n.sentiment === "Bullish" ? "강세" : n.sentiment === "Somewhat-Bullish" ? "약강세"
+                      : n.sentiment === "Bearish" ? "약세" : n.sentiment === "Somewhat-Bearish" ? "약약세" : "중립";
+                    return (
+                      <a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                        <div style={{
+                          padding: "14px 16px", borderRadius: 12, background: C.card,
+                          border: `1px solid ${C.border}`, cursor: "pointer",
+                          transition: "border-color 0.2s",
+                        }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = C.blue + "60")}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.4, marginBottom: 4 }}>{n.title}</div>
+                              {n.summary && (
+                                <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, marginBottom: 6 }}>
+                                  {n.summary.slice(0, 120)}{n.summary.length > 120 ? "..." : ""}
+                                </div>
+                              )}
+                              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                <span style={{ fontSize: 10, color: C.muted }}>{n.source}</span>
+                                {n.published && <span style={{ fontSize: 10, color: C.muted }}>{n.published.slice(0, 4)}-{n.published.slice(4, 6)}-{n.published.slice(6, 8)}</span>}
+                              </div>
+                            </div>
+                            {n.sentiment !== "Neutral" && (
+                              <div style={{
+                                padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700,
+                                background: sentColor + "18", color: sentColor, whiteSpace: "nowrap", flexShrink: 0,
+                              }}>{sentLabel}</div>
+                            )}
+                          </div>
+                        </div>
+                      </a>
                     );
                   })}
                 </div>
