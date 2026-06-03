@@ -453,6 +453,79 @@ function SectorHeatmap() {
   );
 }
 
+interface Week52Stock { ticker: string; price: number; week52_high: number; week52_low: number; position: number; pct_from_high: number }
+
+function Week52Widget() {
+  const [nearHigh, setNearHigh] = useState<Week52Stock[]>([]);
+  const [nearLow, setNearLow] = useState<Week52Stock[]>([]);
+  const [tab, setTab] = useState<"high" | "low">("high");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/market/week52`)
+      .then(r => r.json())
+      .then(d => { if (d.near_high || d.near_low) { setNearHigh(d.near_high || []); setNearLow(d.near_low || []); setLoaded(true); } })
+      .catch(() => {});
+  }, []);
+
+  if (!loaded) return null;
+  const list = tab === "high" ? nearHigh : nearLow;
+
+  return (
+    <section style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "28px 24px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 3 }}>52W EXTREMES</span>
+            <span style={{ fontSize: 11, color: C.muted }}>52주 가격 위치</span>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["high", "low"] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                background: tab === t ? (t === "high" ? `${C.green}20` : `${C.red}20`) : "transparent",
+                color: tab === t ? (t === "high" ? C.green : C.red) : C.muted,
+                border: `1px solid ${tab === t ? (t === "high" ? C.green : C.red) : C.border}`,
+                transition: "all 0.15s",
+              }}>
+                {t === "high" ? "📈 신고가 근접" : "📉 신저가 근접"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+          {list.map(s => {
+            const isHigh = tab === "high";
+            const color = isHigh ? C.green : C.red;
+            return (
+              <Link key={s.ticker} href={`/stock/${s.ticker}`} style={{ textDecoration: "none" }}>
+                <div style={{
+                  padding: "12px 14px", borderRadius: 12, background: C.card,
+                  border: `1px solid ${color}20`, transition: "all 0.15s",
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.02)"; (e.currentTarget as HTMLElement).style.borderColor = color + "50"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = color + "20"; }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text, fontFamily: "monospace", marginBottom: 4 }}>{s.ticker}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: "monospace", marginBottom: 6 }}>${s.price.toFixed(2)}</div>
+                  <div style={{ fontSize: 11, color, fontWeight: 700 }}>
+                    {isHigh ? `고가 ${s.pct_from_high.toFixed(1)}%` : `저가 +${(s.position).toFixed(0)}%권`}
+                  </div>
+                  {/* 52w position bar */}
+                  <div style={{ marginTop: 6, height: 3, borderRadius: 2, background: C.border, position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${s.position}%`, background: color, borderRadius: 2 }} />
+                    <div style={{ position: "absolute", top: -1, left: `${s.position}%`, transform: "translateX(-50%)", width: 5, height: 5, borderRadius: "50%", background: color }} />
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 interface MoverStock { ticker: string; price: number; change_pct: number }
 
 function MarketMovers() {
@@ -1970,6 +2043,9 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* 52W EXTREMES */}
+      <Week52Widget />
 
       {/* MARKET MOVERS */}
       <MarketMovers />

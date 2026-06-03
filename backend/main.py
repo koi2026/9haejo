@@ -621,6 +621,83 @@ def news_latest():
     return {"news": news}
 
 
+@app.get("/news/for-tickers")
+def news_for_tickers(tickers: str = ""):
+    """관심종목 뉴스 필터 — ?tickers=NVDA,AAPL,TSLA (5분 캐시)"""
+    from cache import news_cache
+    from collector import av_news_sentiment
+
+    ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+    if not ticker_list:
+        return {"news": []}
+
+    cache_key = "raw_news"
+    raw = news_cache.get(cache_key)
+    if not raw:
+        raw = av_news_sentiment()
+        if raw:
+            news_cache.set(cache_key, raw)
+
+    if not raw:
+        return {"news": []}
+
+    # 티커 매칭 — tickers 필드 또는 title에 티커 포함
+    matched = []
+    for item in raw:
+        item_tickers = [t.upper() for t in (item.get("tickers") or [])]
+        title_upper = (item.get("title") or "").upper()
+        if any(t in item_tickers or t in title_upper for t in ticker_list):
+            matched.append(item)
+
+    return {"news": matched[:30], "total": len(matched), "tickers": ticker_list}
+
+
+@app.get("/market/week52")
+def market_week52():
+    """52주 신고가 근접 종목 (10% 이내) — 10분 캐시"""
+    from cache import quote_cache
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor
+
+    cached = quote_cache.get("week52")
+    if cached:
+        return cached
+
+    pool = [s for s, _ in _SCREENER_POOL]
+
+    def _check(sym):
+        try:
+            info = yf.Ticker(sym).info or {}
+            h52 = info.get("fiftyTwoWeekHigh")
+            l52 = info.get("fiftyTwoWeekLow")
+            price = info.get("regularMarketPrice") or info.get("currentPrice")
+            if not (h52 and l52 and price and h52 > l52):
+                return None
+            pos = (price - l52) / (h52 - l52) * 100
+            pct_from_high = (price - h52) / h52 * 100
+            return {
+                "ticker": sym,
+                "price": round(price, 2),
+                "week52_high": round(h52, 2),
+                "week52_low": round(l52, 2),
+                "position": round(pos, 1),
+                "pct_from_high": round(pct_from_high, 2),
+            }
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=12) as ex:
+        results = list(ex.map(_check, pool))
+
+    stocks = [r for r in results if r is not None]
+    near_high = sorted([s for s in stocks if s["position"] >= 85], key=lambda x: -x["position"])[:8]
+    near_low = sorted([s for s in stocks if s["position"] <= 15], key=lambda x: x["position"])[:8]
+
+    result = {"near_high": near_high, "near_low": near_low}
+    quote_cache.set("week52", result, ttl=600)
+    return result
+
+
 @app.get("/news/ai-summary")
 def news_ai_summary():
     """뉴스 AI 한국어 요약 (캐시 10분)"""
