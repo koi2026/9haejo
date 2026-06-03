@@ -48,6 +48,62 @@ function fmtPct(v: number) {
   return (v >= 0 ? "+" : "") + v.toFixed(2) + "%";
 }
 
+function DonutChart({ positions, quotes }: { positions: Position[]; quotes: Record<string, LiveQuote> }) {
+  const colors = ["#00d97e", "#3b82f6", "#f59e0b", "#a78bfa", "#ec4899", "#06b6d4", "#ff4466", "#84cc16"];
+  const values = positions.map((p, i) => {
+    const q = quotes[p.ticker];
+    const val = q ? q.price * p.quantity : p.avgCost * p.quantity;
+    return { ticker: p.ticker, val, color: colors[i % colors.length] };
+  });
+  const total = values.reduce((s, v) => s + v.val, 0);
+  if (total <= 0) return null;
+
+  const R = 60, r = 38, cx = 80, cy = 80;
+  let startAngle = -Math.PI / 2;
+  const slices = values.map(v => {
+    const pct = v.val / total;
+    const angle = pct * 2 * Math.PI;
+    const endAngle = startAngle + angle;
+    const x1 = cx + R * Math.cos(startAngle);
+    const y1 = cy + R * Math.sin(startAngle);
+    const x2 = cx + R * Math.cos(endAngle);
+    const y2 = cy + R * Math.sin(endAngle);
+    const xi1 = cx + r * Math.cos(startAngle);
+    const yi1 = cy + r * Math.sin(startAngle);
+    const xi2 = cx + r * Math.cos(endAngle);
+    const yi2 = cy + r * Math.sin(endAngle);
+    const large = angle > Math.PI ? 1 : 0;
+    const d = `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${R} ${R} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L ${xi2.toFixed(2)} ${yi2.toFixed(2)} A ${r} ${r} 0 ${large} 0 ${xi1.toFixed(2)} ${yi1.toFixed(2)} Z`;
+    startAngle = endAngle;
+    return { ...v, d, pct };
+  });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+      <svg width={160} height={160} viewBox="0 0 160 160" style={{ flexShrink: 0 }}>
+        {slices.map(s => (
+          <path key={s.ticker} d={s.d} fill={s.color} opacity={0.9} />
+        ))}
+        <circle cx={cx} cy={cy} r={r - 2} fill="#111120" />
+        <text x={cx} y={cy - 6} textAnchor="middle" fill="#e8e8f0" fontSize={11} fontWeight={700}>{positions.length}종목</text>
+        <text x={cx} y={cy + 10} textAnchor="middle" fill="#6b6b80" fontSize={9}>보유</text>
+      </svg>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+        {slices.map(s => (
+          <div key={s.ticker} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+            <span style={{ fontFamily: "monospace", fontWeight: 800, fontSize: 12, color: "#e8e8f0", minWidth: 50 }}>{s.ticker}</span>
+            <div style={{ flex: 1, height: 4, borderRadius: 2, background: "#1a1a2e", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${s.pct * 100}%`, background: s.color, borderRadius: 2 }} />
+            </div>
+            <span style={{ fontSize: 11, color: "#6b6b80", minWidth: 36, textAlign: "right" }}>{(s.pct * 100).toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AllocationBar({ positions, quotes }: { positions: Position[]; quotes: Record<string, LiveQuote> }) {
   const colors = ["#00d97e", "#3b82f6", "#f59e0b", "#a78bfa", "#ec4899", "#06b6d4", "#ff4466", "#84cc16"];
   const values = positions.map((p, i) => {
@@ -217,7 +273,13 @@ export default function PortfolioPage() {
                 </div>
               </div>
             </div>
-            <AllocationBar positions={positions} quotes={quotes} />
+            {/* 배분 시각화 탭 */}
+            {positions.length >= 2 && (
+              <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
+                <DonutChart positions={positions} quotes={quotes} />
+              </div>
+            )}
+            {positions.length === 1 && <AllocationBar positions={positions} quotes={quotes} />}
           </div>
         )}
 
