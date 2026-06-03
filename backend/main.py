@@ -1691,6 +1691,80 @@ def market_movers():
     return result
 
 
+_SCREENER_POOL = [
+    # 기술
+    ("NVDA","기술"),("AAPL","기술"),("MSFT","기술"),("GOOGL","기술"),("META","기술"),
+    ("AVGO","기술"),("AMD","반도체"),("INTC","반도체"),("QCOM","반도체"),("SMCI","기술"),
+    ("ARM","반도체"),("MU","반도체"),("PLTR","AI"),("CRM","SaaS"),("ORCL","기술"),
+    ("SNOW","SaaS"),("NOW","SaaS"),
+    # 소비자/이커머스
+    ("AMZN","이커머스"),("TSLA","전기차"),("NFLX","미디어"),("UBER","모빌리티"),
+    ("SHOP","이커머스"),("BABA","이커머스"),("PDD","이커머스"),("JD","이커머스"),
+    # 금융
+    ("JPM","금융"),("GS","금융"),("BAC","금융"),("V","금융"),("MA","금융"),
+    ("COIN","크립토"),("SQ","핀테크"),("SOFI","핀테크"),
+    # 바이오/헬스
+    ("LLY","바이오"),("UNH","헬스케어"),
+    # 에너지
+    ("XOM","에너지"),
+    # 크립토 관련
+    ("MSTR","크립토"),
+    # EV
+    ("RIVN","전기차"),("NIO","전기차"),
+    # 기타
+    ("RBLX","게임"),
+]
+
+@app.get("/screener")
+def screener(sort: str = "change_pct_desc", sector: str = "all"):
+    """주식 스크리너 — 등락률/섹터 필터 (5분 캐시)"""
+    from cache import quote_cache
+    from collector import yf_quote
+    from concurrent.futures import ThreadPoolExecutor
+
+    cache_key = f"screener:{sort}:{sector}"
+    cached = quote_cache.get(cache_key)
+    if cached:
+        return cached
+
+    def _q(item):
+        sym, sec = item
+        try:
+            q = yf_quote(sym)
+            if q and q.get("price") and q.get("change_pct") is not None:
+                return {
+                    "ticker": sym, "sector": sec,
+                    "price": round(q["price"], 2),
+                    "change_pct": round(q["change_pct"], 2),
+                    "volume": q.get("volume"),
+                }
+        except Exception:
+            pass
+        return None
+
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        results = list(ex.map(_q, _SCREENER_POOL))
+
+    stocks = [r for r in results if r is not None]
+
+    if sector != "all":
+        stocks = [s for s in stocks if s["sector"] == sector]
+
+    sort_map = {
+        "change_pct_desc": lambda x: -x["change_pct"],
+        "change_pct_asc": lambda x: x["change_pct"],
+        "volume_desc": lambda x: -(x.get("volume") or 0),
+        "price_desc": lambda x: -x["price"],
+        "price_asc": lambda x: x["price"],
+    }
+    stocks.sort(key=sort_map.get(sort, sort_map["change_pct_desc"]))
+
+    sectors = sorted(set(s["sector"] for s in stocks))
+    result = {"stocks": stocks, "sectors": sectors, "total": len(stocks)}
+    quote_cache.set(cache_key, result, ttl=300)
+    return result
+
+
 _SECTOR_ETFS = [
     ("XLK",  "기술"),
     ("XLF",  "금융"),
