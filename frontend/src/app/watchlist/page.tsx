@@ -55,6 +55,33 @@ function Sparkline({ prices, color, width = 90, height = 32 }: { prices: number[
 
 /* ── 종목 카드 ── */
 const CHATID_KEY = "9haejo_telegram_chat_id";
+const NOTES_KEY = "9haejo_stock_notes_v1";
+
+function getNotes(): Record<string, string> {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || "{}"); } catch { return {}; }
+}
+function saveNote(ticker: string, note: string) {
+  const n = getNotes(); n[ticker] = note;
+  localStorage.setItem(NOTES_KEY, JSON.stringify(n));
+}
+
+function NoteModal({ ticker, onClose }: { ticker: string; onClose: () => void }) {
+  const [note, setNote] = useState(() => getNotes()[ticker] || "");
+  const save = () => { saveNote(ticker, note); onClose(); };
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <div style={{ background: "#111120", borderRadius: 20, padding: "24px", width: "100%", maxWidth: 340, border: "1px solid #1a1a2e" }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: 15, fontWeight: 900, color: "#e8e8f0", marginBottom: 14 }}>📝 {ticker} 메모</div>
+        <textarea value={note} onChange={e => setNote(e.target.value)} rows={4} placeholder="매수 이유, 목표가, 리스크 등..."
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 10, background: "#0d0d1a", border: "1px solid #1a1a2e", color: "#e8e8f0", fontSize: 13, resize: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", border: "1px solid #1a1a2e", color: "#6b6b80", fontWeight: 700, cursor: "pointer" }}>취소</button>
+          <button onClick={save} style={{ flex: 2, padding: "10px", borderRadius: 10, background: "linear-gradient(135deg,#00d97e,#3b82f6)", color: "#07070f", fontWeight: 800, border: "none", cursor: "pointer" }}>저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AlertModal({ ticker, price, onClose }: { ticker: string; price: number; onClose: () => void }) {
   const [target, setTarget] = useState(price.toFixed(2));
@@ -118,6 +145,10 @@ function StockCard({ item, onRemove, showRemove }: { item: StockItem; onRemove?:
   const [hovered, setHovered] = useState(false);
   const [priceFlash, setPriceFlash] = useState<"up" | "down" | null>(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [noteText, setNoteText] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(NOTES_KEY) || "{}")[item.ticker] || ""; } catch { return ""; }
+  });
   const up = item.change_pct >= 0;
   const color = up ? C.green : C.red;
 
@@ -212,19 +243,27 @@ function StockCard({ item, onRemove, showRemove }: { item: StockItem; onRemove?:
             {up ? "📈" : "📉"} {up ? "상승중" : "하락중"}
           </span>
           <span style={{ fontSize: 10, color: C.muted }}>AI 분석 →</span>
-          <button
-            onClick={e => { e.preventDefault(); e.stopPropagation(); setShowAlertModal(true); }}
-            style={{
-              marginLeft: "auto", fontSize: 10, padding: "3px 8px", borderRadius: 6,
-              background: `${C.amber}15`, color: C.amber, fontWeight: 700,
-              border: `1px solid ${C.amber}30`, cursor: "pointer",
-              opacity: hovered ? 1 : 0.5, transition: "opacity 0.15s",
-            }}
-          >🔔 알림</button>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+            {noteText && <span style={{ fontSize: 10, color: C.muted }}>📝</span>}
+            <button
+              onClick={e => { e.preventDefault(); e.stopPropagation(); setShowNoteModal(true); }}
+              style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: `${C.muted}10`, color: C.muted, fontWeight: 700, border: `1px solid ${C.border}`, cursor: "pointer", opacity: hovered ? 1 : 0.4, transition: "opacity 0.15s" }}
+            >메모</button>
+            <button
+              onClick={e => { e.preventDefault(); e.stopPropagation(); setShowAlertModal(true); }}
+              style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: `${C.amber}15`, color: C.amber, fontWeight: 700, border: `1px solid ${C.amber}30`, cursor: "pointer", opacity: hovered ? 1 : 0.5, transition: "opacity 0.15s" }}
+            >🔔 알림</button>
+          </div>
         </div>
+        {noteText && (
+          <div style={{ marginTop: 8, padding: "6px 10px", borderRadius: 8, background: `${C.muted}08`, border: `1px solid ${C.border}`, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+            {noteText.slice(0, 80)}{noteText.length > 80 ? "…" : ""}
+          </div>
+        )}
       </div>
     </Link>
     {showAlertModal && <AlertModal ticker={item.ticker} price={item.price} onClose={() => setShowAlertModal(false)} />}
+    {showNoteModal && <NoteModal ticker={item.ticker} onClose={() => { setNoteText(getNotes()[item.ticker] || ""); setShowNoteModal(false); }} />}
   );
 }
 
@@ -305,7 +344,11 @@ export default function WatchlistPage() {
   const [tgLoading, setTgLoading] = useState(false);
 
   // ── 탭 ──
-  const [tab, setTab] = useState<"local" | "telegram">("local");
+  const [tab, setTab] = useState<"local" | "telegram" | "news">("local");
+
+  // ── 관심종목 뉴스 ──
+  const [wlNews, setWlNews] = useState<{title:string;url:string;sentiment:string;tickers:string[];source?:string;summary?:string}[]>([]);
+  const [wlNewsLoading, setWlNewsLoading] = useState(false);
 
   // ── 로컬 ticker 영속성 ──
   useEffect(() => {
@@ -321,6 +364,18 @@ export default function WatchlistPage() {
     setLocalTickers(tickers);
     localStorage.setItem("9haejo_watchlist_v1", JSON.stringify(tickers));
   };
+
+  const fetchWlNews = useCallback(async (tickers: string[]) => {
+    if (!tickers.length) return;
+    setWlNewsLoading(true);
+    try {
+      const r = await fetch(`${API}/news/for-tickers?tickers=${tickers.join(",")}`);
+      const d = await r.json();
+      setWlNews(d.news || []);
+    } catch {} finally {
+      setWlNewsLoading(false);
+    }
+  }, []);
 
   // ── 로컬 시세 조회 ──
   const fetchLocalItems = useCallback(async (tickers: string[]) => {
@@ -484,8 +539,8 @@ export default function WatchlistPage() {
 
         {/* 탭 */}
         <div style={{ display: "flex", gap: 4, marginBottom: 24, background: C.surface, borderRadius: 12, padding: 4, width: "fit-content", border: `1px solid ${C.border}` }}>
-          {([["local", "⭐ 내 관심종목"], ["telegram", "📱 텔레그램 연동"]] as [typeof tab, string][]).map(([key, label]) => (
-            <button key={key} className="wl-tab" onClick={() => setTab(key)}
+          {([["local", "⭐ 내 관심종목"], ["news", "📰 관련 뉴스"], ["telegram", "📱 텔레그램 연동"]] as [typeof tab, string][]).map(([key, label]) => (
+            <button key={key} className="wl-tab" onClick={() => { setTab(key); if (key === "news") fetchWlNews(localTickers); }}
               style={{
                 padding: "8px 18px", borderRadius: 9, border: "none", cursor: "pointer",
                 background: tab === key ? C.card : "transparent",
@@ -608,6 +663,65 @@ export default function WatchlistPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* ── 뉴스 탭 ── */}
+        {tab === "news" && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div>
+                <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2 }}>관심종목 관련 뉴스</span>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
+                  {localTickers.length > 0 ? `${localTickers.join(", ")} 관련 뉴스` : "관심종목을 먼저 추가하세요"}
+                </div>
+              </div>
+              <button onClick={() => fetchWlNews(localTickers)} style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🔄 새로고침</button>
+            </div>
+
+            {wlNewsLoading ? (
+              <div style={{ textAlign: "center", padding: "40px", color: C.muted }}>📰 뉴스 불러오는 중...</div>
+            ) : localTickers.length === 0 ? (
+              <div style={{ padding: "40px 20px", textAlign: "center", borderRadius: 16, background: C.surface, border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 32, marginBottom: 10 }}>⭐</div>
+                <div style={{ fontSize: 14, color: C.muted }}>관심종목을 먼저 추가하면<br />관련 뉴스를 여기서 모아볼 수 있어요</div>
+              </div>
+            ) : wlNews.length === 0 ? (
+              <div style={{ padding: "40px 20px", textAlign: "center", borderRadius: 16, background: C.surface, border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 32, marginBottom: 10 }}>📭</div>
+                <div style={{ fontSize: 14, color: C.muted }}>현재 관심종목 관련 뉴스가 없습니다</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {wlNews.map((n, i) => {
+                  const sentColor = n.sentiment === "Bullish" || n.sentiment === "Somewhat-Bullish" ? C.green
+                    : n.sentiment === "Bearish" || n.sentiment === "Somewhat-Bearish" ? C.red : C.muted;
+                  const sentLabel = n.sentiment?.includes("Bullish") ? "긍정" : n.sentiment?.includes("Bearish") ? "부정" : "중립";
+                  return (
+                    <a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                      <div style={{
+                        padding: "14px 16px", borderRadius: 14, background: C.card,
+                        border: `1px solid ${C.border}`,
+                        transition: "border-color 0.15s",
+                      }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = sentColor + "60")}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}
+                      >
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: sentColor + "18", color: sentColor, fontWeight: 700 }}>{sentLabel}</span>
+                          {(n.tickers || []).filter(t => localTickers.includes(t)).map(t => (
+                            <span key={t} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: `${C.blue}15`, color: C.blue, fontWeight: 700 }}>{t}</span>
+                          ))}
+                          {n.source && <span style={{ fontSize: 10, color: C.muted, marginLeft: "auto" }}>{n.source}</span>}
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.5, marginBottom: n.summary ? 6 : 0 }}>{n.title}</div>
+                        {n.summary && <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{n.summary.slice(0, 120)}{n.summary.length > 120 ? "…" : ""}</div>}
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* ── 텔레그램 탭 ── */}
