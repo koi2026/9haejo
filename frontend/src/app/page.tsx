@@ -385,6 +385,73 @@ function EconomicCalendar() {
   );
 }
 
+interface SectorData { ticker: string; label: string; price: number; change_pct: number }
+
+function SectorHeatmap() {
+  const [sectors, setSectors] = useState<SectorData[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/market/sectors`)
+      .then(r => r.json())
+      .then(d => { if (d.sectors?.length) { setSectors(d.sectors); setLoaded(true); } })
+      .catch(() => {});
+  }, []);
+
+  if (!loaded) return null;
+
+  const maxAbs = Math.max(...sectors.map(s => Math.abs(s.change_pct)), 1);
+
+  return (
+    <section style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "32px 24px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <span style={{ fontSize: 11, color: "#a78bfa", fontFamily: "monospace", letterSpacing: 3 }}>SECTOR HEATMAP</span>
+          <span style={{ fontSize: 11, color: C.muted }}>섹터별 등락률</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 6 }}>
+          {sectors.map(s => {
+            const up = s.change_pct >= 0;
+            const intensity = Math.min(Math.abs(s.change_pct) / maxAbs, 1);
+            const baseColor = up ? "#00d97e" : "#ff4466";
+            const bg = up
+              ? `rgba(0,217,126,${0.06 + intensity * 0.22})`
+              : `rgba(255,68,102,${0.06 + intensity * 0.22})`;
+            const border = up
+              ? `rgba(0,217,126,${0.15 + intensity * 0.4})`
+              : `rgba(255,68,102,${0.15 + intensity * 0.4})`;
+            return (
+              <div key={s.ticker} style={{
+                padding: "12px 14px", borderRadius: 10,
+                background: bg, border: `1px solid ${border}`,
+                textAlign: "center", cursor: "default",
+                transition: "transform 0.15s",
+              }}
+                onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.03)")}
+                onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+              >
+                <div style={{ fontSize: 10, fontWeight: 800, color: C.muted, fontFamily: "monospace", marginBottom: 4 }}>{s.ticker}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 6 }}>{s.label}</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: baseColor, fontFamily: "monospace" }}>
+                  {up ? "+" : ""}{s.change_pct.toFixed(2)}%
+                </div>
+                {/* intensity bar */}
+                <div style={{ marginTop: 6, height: 3, borderRadius: 2, background: `${baseColor}20`, position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${intensity * 100}%`, background: baseColor, borderRadius: 2 }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 10, color: C.muted, justifyContent: "flex-end" }}>
+          <span>🟢 색이 짙을수록 강한 상승</span>
+          <span>🔴 색이 짙을수록 강한 하락</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function EarningsCalendar() {
   const [events, setEvents] = useState<{ ticker: string; name: string; date: string; days_left: number; is_past: boolean }[]>([]);
   useEffect(() => {
@@ -1768,6 +1835,9 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* SECTOR HEATMAP */}
+      <SectorHeatmap />
 
       {/* ECONOMIC CALENDAR */}
       <EarningsCalendar />

@@ -81,18 +81,48 @@ function MessageBubble({ msg }: { msg: Message }) {
   );
 }
 
-export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "ai",
-      content: "안녕하세요! 저는 구해조 AI 어시스턴트입니다. 🤖\n\n미국 주식, 시장 동향, 투자 전략에 대해 무엇이든 물어보세요.\n실시간 시세 데이터를 참고해 답변드립니다.",
-      ts: Date.now(),
+const STORAGE_KEY = "9haejo_chat_history_v1";
+const INITIAL_MSG: Message = {
+  role: "ai",
+  content: "안녕하세요! 저는 구해조 AI 어시스턴트입니다. 🤖\n\n미국 주식, 시장 동향, 투자 전략에 대해 무엇이든 물어보세요.\n실시간 시세 데이터를 참고해 답변드립니다.",
+  ts: 0,
+};
+
+function loadHistory(): Message[] {
+  if (typeof window === "undefined") return [INITIAL_MSG];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Message[];
+      if (parsed.length > 0) return parsed;
     }
-  ]);
+  } catch {}
+  return [INITIAL_MSG];
+}
+
+export default function ChatPage() {
+  const [messages, setMessages] = useState<Message[]>([INITIAL_MSG]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load history from localStorage on mount
+  useEffect(() => {
+    setMessages(loadHistory());
+    setHistoryLoaded(true);
+  }, []);
+
+  // Save history to localStorage whenever messages change
+  useEffect(() => {
+    if (!historyLoaded) return;
+    try {
+      // Keep last 50 messages
+      const toSave = messages.filter(m => !m.loading).slice(-50);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    } catch {}
+  }, [messages, historyLoaded]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -138,11 +168,9 @@ export default function ChatPage() {
   };
 
   const clearChat = () => {
-    setMessages([{
-      role: "ai",
-      content: "대화가 초기화되었습니다. 새로운 질문을 입력해주세요! 🤖",
-      ts: Date.now(),
-    }]);
+    const fresh: Message = { role: "ai", content: "대화가 초기화되었습니다. 새로운 질문을 입력해주세요! 🤖", ts: Date.now() };
+    setMessages([fresh]);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
   };
 
   return (
@@ -173,6 +201,11 @@ export default function ChatPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 13, color: C.text, fontWeight: 700 }}>🤖 AI 챗</span>
               <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: `${C.green}20`, color: C.green, fontWeight: 700 }}>BETA</span>
+              {messages.filter(m => !m.loading && m.role === "user").length > 0 && (
+                <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: `${C.muted}20`, color: C.muted, fontWeight: 700 }}>
+                  {messages.filter(m => !m.loading && m.role === "user").length}개 대화
+                </span>
+              )}
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
