@@ -1067,6 +1067,10 @@ export default function Home() {
   const [marketLastUpdated, setMarketLastUpdated] = useState<number | undefined>(undefined);
   const marketRef = useRef<NodeJS.Timeout | null>(null);
   const [myStocks, setMyStocks] = useState<{ ticker: string; price: number; change_pct: number }[]>([]);
+  const [portfolioSummary, setPortfolioSummary] = useState<{
+    totalValue: number; totalCost: number; gainPct: number; gainAmt: number;
+    bestTicker: string; bestPct: number; worstTicker: string; worstPct: number; count: number;
+  } | null>(null);
   const animatedCount = useCountUp(subCount);
   const marketSession = useMarketSession();
   const nextBriefing = useNextBriefingCountdown();
@@ -1079,6 +1083,35 @@ export default function Home() {
     if (saved === "light") setIsDark(false);
     const savedLang = localStorage.getItem("lang");
     if (savedLang === "en") setLang("en");
+
+    // 포트폴리오 요약 로드 → 홈 배너
+    try {
+      const positions: { ticker: string; quantity: number; avgCost: number; name?: string }[] =
+        JSON.parse(localStorage.getItem("9haejo_portfolio_v2") || "[]");
+      if (positions.length) {
+        Promise.all(
+          positions.map(p =>
+            fetch(`${API}/stock/quote/${p.ticker}`).then(r => r.json()).then(d => ({
+              ticker: p.ticker, price: d.price ?? p.avgCost, change_pct: d.change_pct ?? 0,
+              quantity: p.quantity, avgCost: p.avgCost,
+            })).catch(() => ({ ticker: p.ticker, price: p.avgCost, change_pct: 0, quantity: p.quantity, avgCost: p.avgCost }))
+          )
+        ).then(results => {
+          const totalValue = results.reduce((s, r) => s + r.price * r.quantity, 0);
+          const totalCost = results.reduce((s, r) => s + r.avgCost * r.quantity, 0);
+          const gainAmt = totalValue - totalCost;
+          const gainPct = totalCost > 0 ? (gainAmt / totalCost) * 100 : 0;
+          const sorted = [...results].sort((a, b) => b.change_pct - a.change_pct);
+          setPortfolioSummary({
+            totalValue, totalCost, gainPct, gainAmt,
+            bestTicker: sorted[0]?.ticker || "", bestPct: sorted[0]?.change_pct || 0,
+            worstTicker: sorted[sorted.length - 1]?.ticker || "", worstPct: sorted[sorted.length - 1]?.change_pct || 0,
+            count: results.length,
+          });
+        });
+      }
+    } catch {}
+
     // 로컬 관심종목 로드 → 홈 미니 위젯
     try {
       const wl = JSON.parse(localStorage.getItem("9haejo_watchlist_v1") || "[]") as string[];
@@ -1467,6 +1500,35 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* 포트폴리오 퍼포먼스 배너 */}
+      {portfolioSummary && (
+        <Link href="/portfolio" style={{ textDecoration: "none" }}>
+          <div style={{
+            background: portfolioSummary.gainAmt >= 0 ? `${C.green}08` : `${C.red}08`,
+            borderTop: `1px solid ${portfolioSummary.gainAmt >= 0 ? C.green + "30" : C.red + "30"}`,
+            padding: "12px 24px", cursor: "pointer",
+            transition: "background 0.2s",
+          }}>
+            <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2 }}>📊 내 포트폴리오</span>
+              <span style={{ fontSize: 14, fontWeight: 900, color: C.text, fontFamily: "monospace" }}>
+                ${portfolioSummary.totalValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: portfolioSummary.gainAmt >= 0 ? C.green : C.red }}>
+                {portfolioSummary.gainAmt >= 0 ? "+" : ""}${Math.abs(portfolioSummary.gainAmt).toFixed(0)} ({portfolioSummary.gainPct >= 0 ? "+" : ""}{portfolioSummary.gainPct.toFixed(2)}%)
+              </span>
+              {portfolioSummary.bestTicker && (
+                <span style={{ fontSize: 11, color: C.muted }}>
+                  최고 <span style={{ color: C.green, fontWeight: 700 }}>{portfolioSummary.bestTicker} +{portfolioSummary.bestPct.toFixed(1)}%</span>
+                  {portfolioSummary.count > 1 && <> · 최저 <span style={{ color: C.red, fontWeight: 700 }}>{portfolioSummary.worstTicker} {portfolioSummary.worstPct.toFixed(1)}%</span></>}
+                </span>
+              )}
+              <span style={{ marginLeft: "auto", fontSize: 11, color: C.muted }}>자세히 보기 →</span>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* LIVE MARKET WIDGET */}
       {marketData && (
