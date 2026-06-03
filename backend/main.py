@@ -572,14 +572,15 @@ def stock_history(ticker: str, days: int = 7):
     from cache import news_cache
     import yfinance as yf
     ticker = ticker.upper().strip()
-    days = max(5, min(days, 90))
+    days = max(5, min(days, 365))
     cache_key = f"hist:{ticker}:{days}"
     cached = news_cache.get(cache_key)
     if cached:
         return cached
     try:
         t = yf.Ticker(ticker)
-        hist = t.history(period=f"{days + 5}d")
+        period = "1y" if days >= 250 else f"{days + 10}d"
+        hist = t.history(period=period)
         if hist.empty:
             return {"error": "데이터 없음", "ticker": ticker}
         prices = [round(float(p), 2) for p in hist["Close"].tolist()[-days:]]
