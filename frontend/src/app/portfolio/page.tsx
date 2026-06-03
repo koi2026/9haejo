@@ -27,6 +27,89 @@ interface LiveQuote {
 }
 
 const STORAGE_KEY = "9haejo_portfolio_v2";
+const SNAP_KEY = "9haejo_portfolio_snapshots_v1";
+
+interface Snapshot { date: string; value: number; cost: number; }
+
+function loadSnapshots(): Snapshot[] {
+  try { const r = localStorage.getItem(SNAP_KEY); if (r) return JSON.parse(r); } catch {}
+  return [];
+}
+function saveSnapshot(value: number, cost: number) {
+  const today = new Date().toISOString().slice(0, 10);
+  const snaps = loadSnapshots().filter(s => s.date !== today);
+  snaps.push({ date: today, value, cost });
+  // keep last 90 days
+  const trimmed = snaps.sort((a, b) => a.date.localeCompare(b.date)).slice(-90);
+  localStorage.setItem(SNAP_KEY, JSON.stringify(trimmed));
+}
+
+function PortfolioChart({ snapshots, totalValue }: { snapshots: Snapshot[]; totalValue: number }) {
+  if (snapshots.length < 2) return (
+    <div style={{ padding: "20px", textAlign: "center", color: "#6b6b80", fontSize: 12 }}>
+      📈 내일부터 수익률 차트가 표시됩니다
+    </div>
+  );
+  const W = 600, H = 120, PAD = { t: 12, b: 28, l: 8, r: 8 };
+  const chartW = W - PAD.l - PAD.r;
+  const chartH = H - PAD.t - PAD.b;
+  // compute pct change from first snapshot cost
+  const baseCost = snapshots[0].cost;
+  const pts = snapshots.map((s, i) => ({
+    x: PAD.l + (i / (snapshots.length - 1)) * chartW,
+    y: 0, // fill below
+    pct: baseCost > 0 ? ((s.value - baseCost) / baseCost) * 100 : 0,
+    date: s.date, value: s.value,
+  }));
+  const minPct = Math.min(...pts.map(p => p.pct));
+  const maxPct = Math.max(...pts.map(p => p.pct));
+  const range = maxPct - minPct || 1;
+  pts.forEach(p => { p.y = PAD.t + (1 - (p.pct - minPct) / range) * chartH; });
+  const polyline = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const area = `M ${pts[0].x.toFixed(1)},${(PAD.t + chartH).toFixed(1)} ` +
+    pts.map(p => `L ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") +
+    ` L ${pts[pts.length - 1].x.toFixed(1)},${(PAD.t + chartH).toFixed(1)} Z`;
+  const lastPct = pts[pts.length - 1].pct;
+  const isUp = lastPct >= 0;
+  const color = isUp ? "#00d97e" : "#ff4466";
+  // x-axis labels: first, middle, last
+  const labelIdxs = [0, Math.floor(pts.length / 2), pts.length - 1];
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, color: "#6b6b80", fontFamily: "monospace", letterSpacing: 2 }}>
+          수익률 히스토리 ({snapshots.length}일)
+        </span>
+        <span style={{ fontSize: 16, fontWeight: 900, color, fontFamily: "monospace" }}>
+          {isUp ? "+" : ""}{lastPct.toFixed(2)}%
+        </span>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", overflow: "visible" }}>
+        <defs>
+          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
+        {/* zero line */}
+        {minPct < 0 && maxPct > 0 && (() => {
+          const zeroY = PAD.t + (1 - (0 - minPct) / range) * chartH;
+          return <line x1={PAD.l} y1={zeroY} x2={W - PAD.r} y2={zeroY} stroke="#1a1a2e" strokeWidth={1} strokeDasharray="4,4" />;
+        })()}
+        <path d={area} fill="url(#chartGrad)" />
+        <polyline points={polyline} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {/* last dot */}
+        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r={4} fill={color} />
+        {/* x-axis labels */}
+        {labelIdxs.map(i => (
+          <text key={i} x={pts[i].x} y={H - 4} textAnchor="middle" fill="#3a3a50" fontSize={9} fontFamily="monospace">
+            {snapshots[i].date.slice(5)}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+}
 
 function loadPositions(): Position[] {
   try {
@@ -145,6 +228,7 @@ export default function PortfolioPage() {
   const [lastRefresh, setLastRefresh] = useState(0);
   const [aiDiag, setAiDiag] = useState("");
   const [aiDiagLoading, setAiDiagLoading] = useState(false);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
 
   const runAiDiag = async () => {
     if (positions.length === 0) return;
@@ -168,6 +252,7 @@ export default function PortfolioPage() {
   useEffect(() => {
     const ps = loadPositions();
     setPositions(ps);
+    setSnapshots(loadSnapshots());
     if (ps.length > 0) fetchQuotes(ps);
   // eslint-disable-next-line
   }, []);
@@ -188,6 +273,13 @@ export default function PortfolioPage() {
     setQuotes(results);
     setLoadingQuotes(false);
     setLastRefresh(Date.now());
+    // save daily snapshot
+    const cost = ps.reduce((s, p) => s + p.avgCost * p.quantity, 0);
+    const value = ps.reduce((s, p) => {
+      const q = results[p.ticker];
+      return s + (q ? q.price : p.avgCost) * p.quantity;
+    }, 0);
+    if (value > 0) { saveSnapshot(value, cost); setSnapshots(loadSnapshots()); }
   };
 
   const addPosition = async () => {
@@ -294,6 +386,11 @@ export default function PortfolioPage() {
                 </div>
               </div>
             </div>
+            {/* 수익률 히스토리 차트 */}
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
+              <PortfolioChart snapshots={snapshots} totalValue={totalValue} />
+            </div>
+
             {/* 배분 시각화 탭 */}
             {positions.length >= 2 && (
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>

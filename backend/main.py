@@ -63,11 +63,13 @@ def run_summary_job():
     share_url = f"https://t.me/share/url?url=https%3A%2F%2F9haejo.vercel.app&text={share_text.replace(' ', '%20')}"
     share_markup = {
         "inline_keyboard": [[
-            {"text": "🔗 친구에게 공유", "url": share_url},
-            {"text": "🌐 웹에서 보기", "url": "https://9haejo.vercel.app"},
+            {"text": "🌐 웹에서 전체 보기", "url": "https://9haejo.vercel.app/briefings"},
+            {"text": "📖 전체 커맨드", "callback_data": "/커맨드"},
         ], [
-            {"text": "📊 지금 시황", "callback_data": "/시황"},
-            {"text": "⚡ 종목 분석", "callback_data": "__help_stock"},
+            {"text": "📊 내 포트폴리오", "url": "https://9haejo.vercel.app/portfolio"},
+            {"text": "🔔 알림 설정", "url": "https://9haejo.vercel.app/alerts"},
+        ], [
+            {"text": "🔗 친구에게 공유", "url": share_url},
         ]]
     }
 
