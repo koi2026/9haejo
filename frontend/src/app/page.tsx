@@ -1092,6 +1092,7 @@ export default function Home() {
           <div className="nav-desktop" style={{ alignItems: "center", gap: 6 }}>
             <Link href="/news" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>📰 뉴스</Link>
             <Link href="/briefings" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>📋 브리핑</Link>
+            <Link href="/chat" style={{ padding: "6px 10px", borderRadius: 8, background: `${C.green}12`, border: `1px solid ${C.green}30`, color: C.green, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>🤖 AI챗</Link>
             <Link href="/commands" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>⌨️ 커맨드</Link>
             <Link href="/watchlist" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>⭐ 관심종목</Link>
             <Link href="/portfolio" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.green}40`, color: C.green, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>📊 포트폴리오</Link>
@@ -1277,6 +1278,10 @@ export default function Home() {
               style={{ padding: "13px 28px", borderRadius: 12, background: C.grad, color: "#07070f", fontWeight: 800, fontSize: 15, textDecoration: "none", boxShadow: "0 8px 32px rgba(0,217,126,0.25)" }}>
               📱 텔레그램 시작하기
             </a>
+            <Link href="/chat"
+              style={{ padding: "13px 20px", borderRadius: 12, background: `${C.green}12`, border: `1px solid ${C.green}30`, color: C.green, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+              🤖 AI 챗 바로가기
+            </Link>
             <Link href="/commands"
               style={{ padding: "13px 20px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
               ⌨️ 전체 커맨드 보기
