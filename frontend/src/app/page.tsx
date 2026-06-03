@@ -452,6 +452,76 @@ function SectorHeatmap() {
   );
 }
 
+interface MoverStock { ticker: string; price: number; change_pct: number }
+
+function MarketMovers() {
+  const [gainers, setGainers] = useState<MoverStock[]>([]);
+  const [losers, setLosers] = useState<MoverStock[]>([]);
+  const [tab, setTab] = useState<"gainers" | "losers">("gainers");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/market/movers`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.gainers?.length) { setGainers(d.gainers); setLosers(d.losers || []); setLoaded(true); }
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!loaded) return null;
+  const list = tab === "gainers" ? gainers : losers;
+
+  return (
+    <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, padding: "28px 24px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 3 }}>MARKET MOVERS</span>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["gainers", "losers"] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                background: tab === t ? (t === "gainers" ? `${C.green}20` : `${C.red}20`) : "transparent",
+                color: tab === t ? (t === "gainers" ? C.green : C.red) : C.muted,
+                border: `1px solid ${tab === t ? (t === "gainers" ? C.green : C.red) : C.border}`,
+                transition: "all 0.15s",
+              }}>
+                {t === "gainers" ? "📈 상승" : "📉 하락"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
+          {list.map(s => {
+            const up = s.change_pct >= 0;
+            const color = up ? C.green : C.red;
+            return (
+              <Link key={s.ticker} href={`/stock/${s.ticker}`} style={{ textDecoration: "none" }}>
+                <div style={{
+                  padding: "14px 16px", borderRadius: 12, background: C.card,
+                  border: `1px solid ${color}20`,
+                  transition: "transform 0.15s, border-color 0.15s",
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.02)"; (e.currentTarget as HTMLElement).style.borderColor = color + "50"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = color + "20"; }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text, fontFamily: "monospace", marginBottom: 4 }}>{s.ticker}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>${s.price.toFixed(2)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color }}>
+                    {up ? "▲" : "▼"} {up ? "+" : ""}{s.change_pct.toFixed(2)}%
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function EarningsCalendar() {
   const [events, setEvents] = useState<{ ticker: string; name: string; date: string; days_left: number; is_past: boolean }[]>([]);
   useEffect(() => {
@@ -1836,6 +1906,9 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* MARKET MOVERS */}
+      <MarketMovers />
 
       {/* SECTOR HEATMAP */}
       <SectorHeatmap />
