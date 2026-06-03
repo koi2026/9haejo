@@ -325,6 +325,36 @@ def handle_update(update: dict):
             return
 
         logger.info("[%s] recv: %r", chat_id, text)
+
+        # ── 자연어 커맨드 목록 요청 (최우선 감지) ──────────
+        _tl = text.lower().replace(" ", "")
+        if any(kw in _tl for kw in ["커맨드", "명령어", "commands", "도움말", "뭐할수있", "뭐가있", "사용법", "어떻게써", "어떻게사용", "메뉴알려", "기능알려"]):
+            send(chat_id, (
+                "📖 <b>구해조 전체 커맨드</b>\n\n"
+                "━━━ 📊 시황·브리핑 ━━━\n"
+                "/브리핑 — AI 미국 증시 브리핑\n"
+                "/시황 — 지수·환율·공포탐욕\n"
+                "/뉴스 — 월가 뉴스 한국어 요약\n"
+                "/매크로 — VIX·DXY·금리·원자재\n\n"
+                "━━━ 🔍 종목 분석 ━━━\n"
+                "종목명/티커 입력 → AI 즉시 분석\n"
+                "/뉴스 NVDA — 종목별 뉴스\n"
+                "/종목전망 NVDA — 주간 전망\n"
+                "/비교 NVDA TSLA — 종목 비교\n"
+                "/섹터 반도체 — 섹터 ETF 분석\n\n"
+                "━━━ 📈 스크리너 ━━━\n"
+                "/급등 — 오늘 급등락 TOP5\n"
+                "/모멘텀 — RSI·이평선 종목 스캔\n"
+                "/배당 — 고배당 안정주 TOP10\n\n"
+                "━━━ 🔔 내 계정 ━━━\n"
+                "/구독 — 매일 8시 브리핑 구독\n"
+                "/watchlist add NVDA — 관심종목\n"
+                "/알림 NVDA 200 — 가격 알림\n"
+                "/내통계 — 내 구독·알림 현황\n\n"
+                "💡 <b>Tip:</b> / 를 입력하면 전체 목록이 자동완성됩니다!"
+            ), reply_markup=MAIN_MENU)
+            return
+
         cmd = text.split()[0].lower()
 
         # ── /start ──────────────────────────────────
