@@ -1623,6 +1623,52 @@ def market_movers():
     return result
 
 
+_SECTOR_ETFS = [
+    ("XLK",  "기술"),
+    ("XLF",  "금융"),
+    ("XLE",  "에너지"),
+    ("XLV",  "헬스케어"),
+    ("XLI",  "산업재"),
+    ("XLY",  "경기소비재"),
+    ("XLP",  "필수소비재"),
+    ("XLRE", "리츠"),
+    ("XLB",  "소재"),
+    ("XLC",  "커뮤니케이션"),
+    ("XLU",  "유틸리티"),
+    ("SOXX", "반도체"),
+]
+
+@app.get("/market/sectors")
+def market_sectors():
+    """섹터 ETF 등락률 히트맵 (10분 캐시)"""
+    from cache import quote_cache
+    from collector import yf_quote
+    from concurrent.futures import ThreadPoolExecutor
+
+    cached = quote_cache.get("market_sectors")
+    if cached:
+        return cached
+
+    def _q(item):
+        sym, label = item
+        try:
+            q = yf_quote(sym)
+            if q and q.get("price") and q.get("change_pct") is not None:
+                return {"ticker": sym, "label": label, "price": q["price"], "change_pct": round(q["change_pct"], 2)}
+        except Exception:
+            pass
+        return None
+
+    with ThreadPoolExecutor(max_workers=12) as ex:
+        results = list(ex.map(_q, _SECTOR_ETFS))
+
+    sectors = [r for r in results if r is not None]
+    sectors.sort(key=lambda x: -x["change_pct"])
+    result = {"sectors": sectors}
+    quote_cache.set("market_sectors", result, ttl=600)
+    return result
+
+
 @app.post("/chat")
 def web_chat(body: dict):
     """웹 AI 챗 — 주식/시장 질문에 Claude가 한국어로 답변 (Haiku, 30초 캐시)"""
