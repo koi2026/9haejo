@@ -495,6 +495,12 @@ def handle_update(update: dict):
             from subscribers import subscribe, count as sub_count
             is_new = subscribe(chat_id)
             total = sub_count()
+            # 구독 즉시 백업 (Railway 재배포 데이터 유실 방지)
+            try:
+                from main import backup_subscribers_to_telegram
+                backup_subscribers_to_telegram()
+            except Exception:
+                pass
             if is_new:
                 send(chat_id, (
                     "🎉 <b>구독 완료! 환영합니다.</b>\n"
