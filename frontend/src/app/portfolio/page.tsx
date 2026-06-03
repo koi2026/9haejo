@@ -143,6 +143,27 @@ export default function PortfolioPage() {
   const [addError, setAddError] = useState("");
   const [addLoading, setAddLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(0);
+  const [aiDiag, setAiDiag] = useState("");
+  const [aiDiagLoading, setAiDiagLoading] = useState(false);
+
+  const runAiDiag = async () => {
+    if (positions.length === 0) return;
+    setAiDiagLoading(true);
+    setAiDiag("");
+    try {
+      const r = await fetch(`${API}/portfolio/diagnose`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ positions }),
+      });
+      const d = await r.json();
+      if (d.analysis) setAiDiag(d.analysis);
+    } catch {
+      setAiDiag("분석 중 오류가 발생했습니다.");
+    } finally {
+      setAiDiagLoading(false);
+    }
+  };
 
   useEffect(() => {
     const ps = loadPositions();
@@ -280,6 +301,37 @@ export default function PortfolioPage() {
               </div>
             )}
             {positions.length === 1 && <AllocationBar positions={positions} quotes={quotes} />}
+
+            {/* AI 진단 */}
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
+              {!aiDiag && !aiDiagLoading && (
+                <button onClick={runAiDiag} style={{
+                  width: "100%", padding: "12px", borderRadius: 12,
+                  background: "transparent", border: `1px dashed ${C.border}`,
+                  color: C.muted, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#a78bfa"; (e.currentTarget as HTMLElement).style.color = "#a78bfa"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.color = C.muted; }}
+                >
+                  🤖 AI 포트폴리오 진단 받기
+                </button>
+              )}
+              {aiDiagLoading && (
+                <div style={{ padding: "14px", borderRadius: 12, background: "#0d0d1a", border: `1px solid #a78bfa30`, textAlign: "center", color: "#6b6b80", fontSize: 13 }}>
+                  🤖 Claude AI가 포트폴리오를 분석 중입니다...
+                </div>
+              )}
+              {aiDiag && (
+                <div style={{ padding: "16px 18px", borderRadius: 12, background: "#0d0d1a", border: `1px solid #a78bfa40` }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#a78bfa", letterSpacing: 1, marginBottom: 10 }}>🤖 AI 포트폴리오 진단</div>
+                  <p style={{ fontSize: 13, color: C.text, lineHeight: 1.8, margin: 0, whiteSpace: "pre-wrap" }}>{aiDiag}</p>
+                  <button onClick={runAiDiag} style={{ marginTop: 10, fontSize: 11, color: C.muted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                    다시 분석
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
