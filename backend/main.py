@@ -1621,3 +1621,57 @@ def market_movers():
     result = {"gainers": gainers, "losers": losers}
     quote_cache.set("market_movers", result)
     return result
+
+
+@app.post("/chat")
+def web_chat(body: dict):
+    """웹 AI 챗 — 주식/시장 질문에 Claude가 한국어로 답변 (Haiku, 30초 캐시)"""
+    from cache import news_cache
+    from stock_analyzer import claude_call
+    from collector import yf_quote, collect_fear_greed
+    import re as _re
+
+    user_msg = (body.get("message") or "").strip()[:300]
+    if not user_msg:
+        return {"reply": "질문을 입력해주세요."}
+
+    # 간단한 캐시 (같은 질문 반복 방지)
+    cache_key = f"webchat:{user_msg[:80]}"
+    cached = news_cache.get(cache_key)
+    if cached:
+        return {"reply": cached}
+
+    # 티커 추출해서 현재가 컨텍스트 제공
+    tickers_found = _re.findall(r'\b([A-Z]{2,5})\b', user_msg.upper())
+    price_context = ""
+    if tickers_found:
+        for t in tickers_found[:2]:
+            q = yf_quote(t)
+            if q and q.get("price"):
+                sign = "+" if q["change_pct"] >= 0 else ""
+                price_context += f"{t} 현재가: ${q['price']:,.2f} ({sign}{q['change_pct']:.2f}%오늘)\n"
+
+    fg = collect_fear_greed()
+    system_prompt = (
+        "당신은 구해조(9haejo)의 AI 주식 어시스턴트입니다. "
+        "한국 개인 투자자에게 미국 주식 시장에 대해 정확하고 친절하게 답변합니다. "
+        "투자 결정은 항상 본인 판단임을 명시하며, 3-5문장으로 간결하게 답변하세요. "
+        "이모지를 적절히 사용하고, 숫자와 근거를 포함해 신뢰감을 주세요. "
+        f"현재 시장: 공포탐욕지수 {fg.get('score', 50)}pt ({fg.get('label_kr', '중립')}). "
+        + (f"\n실시간 시세:\n{price_context}" if price_context else "")
+    )
+
+    try:
+        from anthropic import Anthropic
+        client = Anthropic()
+        resp = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=400,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        reply = resp.content[0].text.strip()
+        news_cache.set(cache_key, reply, ttl=30)
+        return {"reply": reply}
+    except Exception as e:
+        return {"reply": f"잠시 후 다시 시도해주세요. ({str(e)[:50]})"}

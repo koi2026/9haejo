@@ -11,7 +11,7 @@ const C = {
 const TABS = [
   { href: "/", icon: "🏠", label: "홈" },
   { href: "/briefings", icon: "📋", label: "브리핑" },
-  { href: "/commands", icon: "⌨️", label: "커맨드" },
+  { href: "/chat", icon: "🤖", label: "AI챗" },
   { href: "/portfolio", icon: "📊", label: "포트폴리오" },
   { href: "/watchlist", icon: "⭐", label: "관심" },
 ];
