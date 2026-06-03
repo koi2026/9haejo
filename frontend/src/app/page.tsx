@@ -1020,41 +1020,48 @@ export default function Home() {
   return (
     <div className={isDark ? "" : "light-mode"} style={{ background: isDark ? C.bg : "#f0f4ff", minHeight: "100vh", color: isDark ? C.text : "#0d0d1a", transition: "background 0.3s, color 0.3s", paddingBottom: isMobile ? 72 : 0 }}>
 
-      {/* NAV */}
-      <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(7,7,15,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 58 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: C.grad, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 15, color: "#07070f" }}>9</div>
-            <span style={{ fontWeight: 800, fontSize: 16 }}>구해조</span>
-            <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "#0a1f14", color: C.green, border: `1px solid ${C.green}30`, fontFamily: "monospace" }}>BETA</span>
+      {/* NAV — 모바일 최적화 */}
+      <style>{`
+        .nav-desktop { display: flex; }
+        .nav-mobile-only { display: none; }
+        @media (max-width: 767px) {
+          .nav-desktop { display: none; }
+          .nav-mobile-only { display: flex; }
+        }
+      `}</style>
+      <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(7,7,15,0.95)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: C.grad, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 14, color: "#07070f", flexShrink: 0 }}>9</div>
+            <span style={{ fontWeight: 800, fontSize: 15 }}>구해조</span>
+            {/* 장 상태 — 데스크탑만 */}
             {marketSession.label && (
-              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: `${marketSession.color}15`, color: marketSession.color, border: `1px solid ${marketSession.color}30`, fontFamily: "monospace" }}>
+              <span className="nav-desktop" style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: `${marketSession.color}15`, color: marketSession.color, border: `1px solid ${marketSession.color}30`, fontFamily: "monospace" }}>
                 {marketSession.label}
               </span>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Link href="/news" style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
-              📰 뉴스
-            </Link>
-            <Link href="/compare" style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
-              ⚖️ 비교
-            </Link>
-            <Link href="/watchlist" style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
-              ⭐ 관심종목
-            </Link>
-            <Link href="/portfolio" style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.green}40`, color: C.green, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
-              📊 포트폴리오
-            </Link>
+
+          {/* 데스크탑 메뉴 */}
+          <div className="nav-desktop" style={{ alignItems: "center", gap: 6 }}>
+            <Link href="/news" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>📰 뉴스</Link>
+            <Link href="/briefings" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>📋 브리핑</Link>
+            <Link href="/commands" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>⌨️ 커맨드</Link>
+            <Link href="/watchlist" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>⭐ 관심종목</Link>
+            <Link href="/portfolio" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.green}40`, color: C.green, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>📊 포트폴리오</Link>
             <NavSearch />
-            <button onClick={toggleLang} style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", letterSpacing: 1 }}>
-              {T.langToggle}
-            </button>
-            <button onClick={toggleTheme} style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 14, cursor: "pointer" }}>
-              {isDark ? "☀️" : "🌙"}
-            </button>
-            <a href="#subscribe" style={{ padding: "8px 18px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-              {T.subscribe}
+            <button onClick={toggleLang} style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, fontFamily: "monospace", cursor: "pointer" }}>{T.langToggle}</button>
+            <button onClick={toggleTheme} style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, cursor: "pointer" }}>{isDark ? "☀️" : "🌙"}</button>
+            <a href="#subscribe" style={{ padding: "7px 16px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 700, fontSize: 12, textDecoration: "none" }}>{T.subscribe}</a>
+          </div>
+
+          {/* 모바일 메뉴 — 검색 + CTA만 */}
+          <div className="nav-mobile-only" style={{ alignItems: "center", gap: 8 }}>
+            <NavSearch />
+            <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
+              style={{ padding: "7px 14px", borderRadius: 10, background: C.grad, color: "#07070f", fontWeight: 800, fontSize: 12, textDecoration: "none", whiteSpace: "nowrap" }}>
+              📱 텔레그램
             </a>
           </div>
         </div>
@@ -1220,14 +1227,15 @@ export default function Home() {
             )}
           </p>
 
-          <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 60, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 10, marginBottom: 48, flexWrap: "wrap" }}>
             <a href="https://t.me/goohaejo_bot" target="_blank" rel="noopener noreferrer"
-              style={{ padding: "14px 32px", borderRadius: 12, background: C.grad, color: "#07070f", fontWeight: 800, fontSize: 15, textDecoration: "none", boxShadow: "0 8px 32px rgba(0,217,126,0.25)" }}>
+              style={{ padding: "13px 28px", borderRadius: 12, background: C.grad, color: "#07070f", fontWeight: 800, fontSize: 15, textDecoration: "none", boxShadow: "0 8px 32px rgba(0,217,126,0.25)" }}>
               📱 텔레그램 시작하기
             </a>
-            <a href="#subscribe" style={{ padding: "14px 24px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
-              Chat ID로 구독 ↓
-            </a>
+            <Link href="/commands"
+              style={{ padding: "13px 20px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+              ⌨️ 전체 커맨드 보기
+            </Link>
           </div>
 
           {/* 마일스톤 배지 */}
