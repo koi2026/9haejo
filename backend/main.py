@@ -955,8 +955,17 @@ def stock_detail(ticker: str):
         l52 = info.get("fiftyTwoWeekLow")
         volume = info.get("volume") or info.get("regularMarketVolume")
         avg_vol = info.get("averageVolume") or info.get("averageDailyVolume10Day")
+        # 애널리스트 목표주가
+        target_mean = info.get("targetMeanPrice")
+        target_high = info.get("targetHighPrice")
+        target_low = info.get("targetLowPrice")
+        rec_key = info.get("recommendationKey", "")  # "buy","hold","sell","strong_buy","strong_sell"
+        analyst_count = info.get("numberOfAnalystOpinions")
+        forward_pe = info.get("forwardPE")
+        pb_ratio = info.get("priceToBook")
     except Exception:
         name, sector, pe, mktcap, h52, l52, volume, avg_vol = ticker, "", None, None, None, None, None, None
+        target_mean = target_high = target_low = rec_key = analyst_count = forward_pe = pb_ratio = None
 
     # 배당 정보
     div_yield = None
@@ -1008,6 +1017,13 @@ Write 3-4 sentences: (1) current momentum, (2) key risk/opportunity, (3) what Ko
         "div_rate": div_rate,
         "payout_ratio": payout_ratio,
         "ex_div_date": ex_div_date,
+        "target_mean": round(target_mean, 2) if target_mean else None,
+        "target_high": round(target_high, 2) if target_high else None,
+        "target_low": round(target_low, 2) if target_low else None,
+        "recommendation": rec_key,
+        "analyst_count": analyst_count,
+        "forward_pe": round(forward_pe, 1) if forward_pe else None,
+        "pb_ratio": round(pb_ratio, 2) if pb_ratio else None,
     }
     analysis_cache.set(cache_key, result)
     return result
