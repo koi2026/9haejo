@@ -37,6 +37,89 @@ interface StockData {
   ex_div_date?: string;
 }
 
+// ===== EPISODE 15: 캔들스틱 차트 =====
+interface OhlcvBar { date: string; open: number; high: number; low: number; close: number; volume: number; }
+function CandlestickChart({ ohlcv, color }: { ohlcv: OhlcvBar[]; color: string }) {
+  const [hover, setHover] = useState<OhlcvBar | null>(null);
+  if (!ohlcv || ohlcv.length < 2) return <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ color: "#6b6b80", fontSize: 13 }}>차트 로딩 중…</span></div>;
+
+  const W = 720, H = 200, padL = 8, padR = 4, padT = 12, padB = 8;
+  const n = ohlcv.length;
+  const candleW = Math.max(2, Math.floor((W - padL - padR) / n) - 1);
+  const spacing = (W - padL - padR) / n;
+  const minLow = Math.min(...ohlcv.map(b => b.low));
+  const maxHigh = Math.max(...ohlcv.map(b => b.high));
+  const range = maxHigh - minLow || 1;
+  const toY = (v: number) => padT + ((maxHigh - v) / range) * (H - padT - padB);
+
+  // Volume
+  const maxVol = Math.max(...ohlcv.map(b => b.volume));
+  const volH = 36;
+
+  return (
+    <div style={{ position: "relative" }}>
+      {hover && (
+        <div style={{ position: "absolute", top: 0, left: 0, fontSize: 11, color: "#e8e8f0", fontFamily: "monospace", background: "rgba(7,7,15,0.92)", border: "1px solid #1a1a2e", borderRadius: 8, padding: "6px 12px", pointerEvents: "none", zIndex: 10 }}>
+          <div style={{ fontWeight: 700, marginBottom: 2 }}>{hover.date}</div>
+          <div>O: ${hover.open.toFixed(2)} H: ${hover.high.toFixed(2)}</div>
+          <div>L: ${hover.low.toFixed(2)} C: <span style={{ color: hover.close >= hover.open ? "#00d97e" : "#ff4466", fontWeight: 800 }}>${hover.close.toFixed(2)}</span></div>
+          {hover.volume > 0 && <div style={{ color: "#6b6b80" }}>Vol: {(hover.volume / 1e6).toFixed(2)}M</div>}
+        </div>
+      )}
+      <svg width="100%" viewBox={`0 0 ${W} ${H + volH}`} style={{ display: "block", overflow: "visible" }}
+        onMouseLeave={() => setHover(null)}>
+        {/* Grid lines */}
+        {[0.25, 0.5, 0.75].map(pct => {
+          const y = padT + pct * (H - padT - padB);
+          const price = maxHigh - pct * range;
+          return (
+            <g key={pct}>
+              <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#1a1a2e" strokeWidth={1} />
+              <text x={W - padR} y={y - 2} textAnchor="end" fill="#6b6b80" fontSize={9}>${price.toFixed(0)}</text>
+            </g>
+          );
+        })}
+        {/* Candles */}
+        {ohlcv.map((bar, i) => {
+          const up = bar.close >= bar.open;
+          const col = up ? "#00d97e" : "#ff4466";
+          const cx = padL + i * spacing + spacing / 2;
+          const bodyTop = toY(Math.max(bar.open, bar.close));
+          const bodyBot = toY(Math.min(bar.open, bar.close));
+          const bodyH = Math.max(1, bodyBot - bodyTop);
+          const wickTop = toY(bar.high);
+          const wickBot = toY(bar.low);
+          const volBar = maxVol > 0 ? (bar.volume / maxVol) * volH : 0;
+          return (
+            <g key={bar.date} onMouseEnter={() => setHover(bar)}>
+              {/* Wick */}
+              <line x1={cx} y1={wickTop} x2={cx} y2={wickBot} stroke={col} strokeWidth={1} opacity={0.6} />
+              {/* Body */}
+              <rect x={cx - candleW / 2} y={bodyTop} width={candleW} height={bodyH}
+                fill={up ? col : col} opacity={hover?.date === bar.date ? 1 : 0.85} rx={1} />
+              {/* Volume bar */}
+              <rect x={cx - candleW / 2} y={H + volH - volBar} width={candleW} height={volBar}
+                fill={col} opacity={0.35} rx={1} />
+              {/* Hover target */}
+              <rect x={cx - spacing / 2} y={0} width={spacing} height={H + volH}
+                fill="transparent" />
+            </g>
+          );
+        })}
+        {/* Date labels */}
+        {ohlcv.filter((_, i) => i === 0 || i === Math.floor(n / 2) || i === n - 1).map((bar, i) => {
+          const cx = padL + ohlcv.indexOf(bar) * spacing + spacing / 2;
+          return (
+            <text key={i} x={cx} y={H + volH} textAnchor="middle" fill="#6b6b80" fontSize={9}>
+              {bar.date.slice(5)}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // ===== EPISODE 11: 인터랙티브 차트 =====
 interface ChartPt { x: number; y: number; price: number; date: string; }
 function InteractiveChart({ pts, pathD, fillD, W, H, pad, color, minIdx, maxIdx, gridLevels, startDate, endDate }: {
@@ -176,6 +259,8 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [chartDays, setChartDays] = useState(30);
   const [chartPrices, setChartPrices] = useState<number[]>([]);
   const [chartDates, setChartDates] = useState<string[]>([]);
+  const [chartOhlcv, setChartOhlcv] = useState<{date:string;open:number;high:number;low:number;close:number;volume:number}[]>([]);
+  const [chartMode, setChartMode] = useState<"line" | "candle">("line");
   const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
   const [technicals, setTechnicals] = useState<{
     rsi: number; rsi_signal: string;
@@ -281,7 +366,10 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     setChartDates([]);
     fetch(`${API}/stock/history/${upperTicker}?days=${chartDays}`)
       .then(r => r.json())
-      .then(d => { if (d.prices?.length) { setChartPrices(d.prices); setChartDates(d.dates || []); } })
+      .then(d => {
+        if (d.prices?.length) { setChartPrices(d.prices); setChartDates(d.dates || []); }
+        if (d.ohlcv?.length) setChartOhlcv(d.ohlcv);
+      })
       .catch(() => {});
   }, [upperTicker, chartDays]);
 
@@ -778,7 +866,18 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
             <div style={{ padding: "20px 24px", borderRadius: 16, background: C.card, border: `1px solid ${C.border}`, marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2 }}>PRICE CHART</span>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  {/* 차트 타입 토글 */}
+                  <div style={{ display: "flex", gap: 2, background: C.surface, borderRadius: 8, padding: 2, border: `1px solid ${C.border}` }}>
+                    {(["line", "candle"] as const).map(mode => (
+                      <button key={mode} onClick={() => setChartMode(mode)}
+                        style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none",
+                          background: chartMode === mode ? C.card : "transparent",
+                          color: chartMode === mode ? C.text : C.muted }}>
+                        {mode === "line" ? "📈 라인" : "🕯 캔들"}
+                      </button>
+                    ))}
+                  </div>
                   {([["1W", 7], ["1M", 30], ["3M", 90], ["1Y", 252]] as [string, number][]).map(([label, days]) => (
                     <button key={days} onClick={() => setChartDays(days)}
                       style={{ padding: "5px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", transition: "all 0.15s",
@@ -793,6 +892,8 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <div style={{ fontSize: 13, color: C.muted }}>차트 로딩 중…</div>
                 </div>
+              ) : chartMode === "candle" && chartOhlcv.length >= 2 ? (
+                <CandlestickChart ohlcv={chartOhlcv} color={data.change_pct >= 0 ? C.green : C.red} />
               ) : (() => {
                 const W = 720, H = 160, pad = 12;
                 const min = Math.min(...chartPrices), max = Math.max(...chartPrices);
@@ -807,7 +908,6 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                 const fillD = `${pathD} L ${pts[pts.length-1].x.toFixed(1)},${(H-pad).toFixed(1)} L ${pts[0].x.toFixed(1)},${(H-pad).toFixed(1)} Z`;
                 const minIdx = chartPrices.indexOf(min);
                 const maxIdx = chartPrices.indexOf(max);
-                // Y-axis grid lines (3 levels)
                 const gridLevels = [0, 0.5, 1].map(t => ({
                   y: H - pad - t * (H - pad * 2),
                   price: min + t * range,

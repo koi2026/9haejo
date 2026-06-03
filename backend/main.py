@@ -585,7 +585,18 @@ def stock_history(ticker: str, days: int = 7):
             return {"error": "데이터 없음", "ticker": ticker}
         prices = [round(float(p), 2) for p in hist["Close"].tolist()[-days:]]
         dates = [str(d.date()) for d in hist.index.tolist()[-days:]]
-        result = {"ticker": ticker, "prices": prices, "dates": dates}
+        # Include OHLCV for candlestick support
+        ohlcv = []
+        for i, (idx, row) in enumerate(hist.tail(days).iterrows()):
+            ohlcv.append({
+                "date": str(idx.date()),
+                "open": round(float(row["Open"]), 2),
+                "high": round(float(row["High"]), 2),
+                "low":  round(float(row["Low"]), 2),
+                "close": round(float(row["Close"]), 2),
+                "volume": int(row.get("Volume", 0)),
+            })
+        result = {"ticker": ticker, "prices": prices, "dates": dates, "ohlcv": ohlcv}
         news_cache.set(cache_key, result)
         return result
     except Exception as e:
