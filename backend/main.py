@@ -1811,6 +1811,93 @@ def market_sectors():
     return result
 
 
+@app.post("/portfolio/diagnose")
+def portfolio_diagnose(body: dict):
+    """포트폴리오 AI 진단 — 보유 종목 리스트를 받아 Claude가 한국어로 분석 (1분 캐시)"""
+    from cache import news_cache
+    from collector import yf_quote, collect_fear_greed
+    from concurrent.futures import ThreadPoolExecutor
+    import re as _re
+
+    positions = body.get("positions", [])  # [{ticker, quantity, avgCost}]
+    if not positions or len(positions) > 20:
+        return {"error": "1~20개 종목을 전달해주세요"}
+
+    cache_key = "portdiag:" + ",".join(sorted(p["ticker"] for p in positions))
+    cached = news_cache.get(cache_key)
+    if cached:
+        return cached
+
+    def _q(p):
+        sym = p["ticker"].upper()
+        try:
+            q = yf_quote(sym) or {}
+            return {
+                "ticker": sym,
+                "price": q.get("price", p.get("avgCost", 0)),
+                "change_pct": q.get("change_pct", 0),
+                "quantity": p.get("quantity", 0),
+                "avg_cost": p.get("avgCost", 0),
+            }
+        except Exception:
+            return {"ticker": sym, "price": p.get("avgCost", 0), "change_pct": 0, "quantity": p.get("quantity", 0), "avg_cost": p.get("avgCost", 0)}
+
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        live = list(ex.map(_q, positions))
+
+    total_value = sum(p["price"] * p["quantity"] for p in live)
+    total_cost = sum(p["avg_cost"] * p["quantity"] for p in live)
+    gain_pct = (total_value - total_cost) / total_cost * 100 if total_cost else 0
+
+    fg = collect_fear_greed() or {}
+    fg_score = fg.get("score", "N/A")
+
+    lines = []
+    for p in live:
+        val = p["price"] * p["quantity"]
+        weight = val / total_value * 100 if total_value else 0
+        pnl_pct = (p["price"] - p["avg_cost"]) / p["avg_cost"] * 100 if p["avg_cost"] else 0
+        lines.append(f"{p['ticker']}: 비중 {weight:.0f}%, 오늘 {p['change_pct']:+.2f}%, 수익률 {pnl_pct:+.1f}%")
+
+    holdings_text = "\n".join(lines)
+    prompt = f"""한국인 개인투자자의 미국 주식 포트폴리오를 분석해주세요.
+
+포트폴리오 현황:
+{holdings_text}
+
+총 평가액: ${total_value:,.0f} | 총 수익률: {gain_pct:+.2f}%
+공포탐욕지수: {fg_score}/100
+
+다음을 간결하게 한국어로 분석해주세요 (총 250자 이내):
+1. 포트폴리오 분산도 평가 (집중/분산 여부)
+2. 현재 시장 상황 대비 포트폴리오 위험도
+3. 한 가지 개선 제안
+
+간결하고 실용적으로, 이모지 없이 작성하세요."""
+
+    try:
+        from anthropic import Anthropic
+        client = Anthropic()
+        resp = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=350,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        analysis = resp.content[0].text.strip()
+    except Exception as e:
+        analysis = f"분석 중 오류가 발생했습니다: {str(e)[:60]}"
+
+    result = {
+        "analysis": analysis,
+        "total_value": round(total_value, 2),
+        "total_cost": round(total_cost, 2),
+        "gain_pct": round(gain_pct, 2),
+        "positions": live,
+    }
+    news_cache.set(cache_key, result, ttl=60)
+    return result
+
+
 @app.post("/chat")
 def web_chat(body: dict):
     """웹 AI 챗 — 주식/시장 질문에 Claude가 한국어로 답변 (Haiku, 30초 캐시)"""
