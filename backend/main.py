@@ -71,6 +71,12 @@ def run_summary_job():
         ]]
     }
 
+    # 발송 전 구독자 백업
+    try:
+        backup_subscribers_to_telegram()
+    except Exception:
+        pass
+
     for chat_id in subscribers:
         # 브리핑 5개 메시지 전송 (마지막 메시지에 공유 버튼 추가)
         tweets = result["tweets"]
@@ -193,6 +199,71 @@ def check_user_alarms():
         logger.error("check_user_alarms error: %s", e)
 
 
+def backup_subscribers_to_telegram():
+    """구독자 목록을 Telegram 메시지로 백업 (ADMIN_CHAT_ID 환경변수 필요)"""
+    import httpx as _httpx, json as _json
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    admin = os.getenv("ADMIN_CHAT_ID", "")
+    if not token or not admin:
+        return
+    from subscribers import get_all
+    subs = get_all()
+    backup_text = f"🔒 SUBSCRIBER_BACKUP:{_json.dumps(subs)}"
+    try:
+        msg_id_env = os.getenv("_SUBSCRIBER_BACKUP_MSG_ID", "")
+        if msg_id_env:
+            # 기존 메시지 수정
+            _httpx.post(f"https://api.telegram.org/bot{token}/editMessageText",
+                json={"chat_id": admin, "message_id": int(msg_id_env), "text": backup_text}, timeout=10)
+        else:
+            # 새 메시지 전송
+            r = _httpx.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": admin, "text": backup_text}, timeout=10).json()
+            if r.get("ok"):
+                logger.info("Subscriber backup created, msg_id=%s", r["result"]["message_id"])
+    except Exception as e:
+        logger.warning("backup_subscribers_to_telegram: %s", e)
+
+
+def restore_subscribers_from_telegram():
+    """Telegram 백업 메시지에서 구독자 목록 복구"""
+    import httpx as _httpx, json as _json
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    admin = os.getenv("ADMIN_CHAT_ID", "")
+    if not token or not admin:
+        logger.info("Subscriber restore skipped: no ADMIN_CHAT_ID set")
+        return
+    try:
+        # 최근 메시지에서 백업 찾기
+        r = _httpx.get(f"https://api.telegram.org/bot{token}/getUpdates",
+            params={"limit": 100, "offset": -100}, timeout=15).json()
+        messages = r.get("result", [])
+        backup_text = None
+        for update in reversed(messages):
+            msg = update.get("message") or update.get("edited_message", {})
+            text = msg.get("text", "")
+            if text.startswith("🔒 SUBSCRIBER_BACKUP:"):
+                backup_text = text
+                break
+        if not backup_text:
+            logger.info("No subscriber backup found in Telegram")
+            return
+        subs_json = backup_text.replace("🔒 SUBSCRIBER_BACKUP:", "")
+        subs = _json.loads(subs_json)
+        if not subs:
+            return
+        from subscribers import subscribe, get_all
+        existing = set(get_all())
+        added = 0
+        for chat_id in subs:
+            if chat_id not in existing:
+                subscribe(chat_id)
+                added += 1
+        logger.info("Subscriber restore: %d total, %d newly added from backup", len(subs), added)
+    except Exception as e:
+        logger.warning("restore_subscribers_from_telegram: %s", e)
+
+
 def register_bot_commands():
     """Telegram setMyCommands -- 봇 커맨드 자동완성 등록"""
     import httpx as _httpx
@@ -275,7 +346,11 @@ def register_webhook():
 def startup_scheduler():
     register_webhook()
     register_bot_commands()
-    register_bot_commands()
+    # 구독자 복구 시도 (Telegram 백업 메시지에서)
+    try:
+        restore_subscribers_from_telegram()
+    except Exception as e:
+        logger.warning("subscriber restore failed: %s", e)
     from alerts import check_and_fire_alerts
     from apscheduler.triggers.interval import IntervalTrigger
     # KST 08:00 = UTC 23:00

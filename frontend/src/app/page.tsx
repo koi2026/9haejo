@@ -1018,7 +1018,7 @@ export default function Home() {
 
 
     // 지수 + 빅테크 스파크라인 (7일 데이터)
-    const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI", "VIX": "^VIX", "NVDA": "NVDA", "TSLA": "TSLA", "AAPL": "AAPL", "MSFT": "MSFT", "META": "META", "AMZN": "AMZN", "GOOGL": "GOOGL", "AVGO": "AVGO" };
+    const sparkTickers = { "S&P500": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI", "VIX": "^VIX", "KOSPI": "^KS11", "NVDA": "NVDA", "TSLA": "TSLA", "AAPL": "AAPL", "MSFT": "MSFT", "META": "META", "AMZN": "AMZN", "GOOGL": "GOOGL", "AVGO": "AVGO" };
     Object.entries(sparkTickers).forEach(([name, sym]) => {
       fetch(`${API}/stock/history/${encodeURIComponent(sym)}?days=7`)
         .then(r => r.json())
