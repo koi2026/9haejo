@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 
 export const viewport: Viewport = {
   themeColor: "#00d97e",
+  width: "device-width",
+  initialScale: 1,
+  minimumScale: 1,
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
@@ -46,7 +50,6 @@ export const metadata: Metadata = {
     images: ["https://9haejo.vercel.app/og-image.png"],
   },
   robots: { index: true, follow: true },
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
