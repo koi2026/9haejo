@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import NavSearch from "@/components/NavSearch";
 import TickerBanner from "@/components/TickerBanner";
+import OnboardingModal from "@/components/OnboardingModal";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
@@ -2379,6 +2380,7 @@ export default function Home() {
         @media (max-width: 768px) { body { padding-bottom: 68px; } }
       `}</style>
       <PWAInstallBanner />
+      <OnboardingModal />
     </div>
   );
 }
