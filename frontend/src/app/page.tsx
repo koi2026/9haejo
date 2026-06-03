@@ -929,6 +929,7 @@ export default function Home() {
   } | null>(null);
   const [marketLastUpdated, setMarketLastUpdated] = useState<number | undefined>(undefined);
   const marketRef = useRef<NodeJS.Timeout | null>(null);
+  const [myStocks, setMyStocks] = useState<{ ticker: string; price: number; change_pct: number }[]>([]);
   const animatedCount = useCountUp(subCount);
   const marketSession = useMarketSession();
   const nextBriefing = useNextBriefingCountdown();
@@ -941,6 +942,17 @@ export default function Home() {
     if (saved === "light") setIsDark(false);
     const savedLang = localStorage.getItem("lang");
     if (savedLang === "en") setLang("en");
+    // 로컬 관심종목 로드 → 홈 미니 위젯
+    try {
+      const wl = JSON.parse(localStorage.getItem("9haejo_watchlist_v1") || "[]") as string[];
+      if (wl.length) {
+        Promise.all(
+          wl.slice(0, 6).map(ticker =>
+            fetch(`${API}/stock/quote/${ticker}`).then(r => r.json()).then(d => d.error ? null : { ticker, price: d.price, change_pct: d.change_pct }).catch(() => null)
+          )
+        ).then(results => setMyStocks(results.filter(Boolean) as { ticker: string; price: number; change_pct: number }[]));
+      }
+    } catch {}
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
@@ -1366,6 +1378,37 @@ export default function Home() {
                 <FearGauge score={marketData.fear_greed.score} label={marketData.fear_greed.label_kr} />
                 <p style={{ fontSize: 11, color: C.muted, textAlign: "center" }}>CNN Fear & Greed Index</p>
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 내 관심종목 미니 위젯 (로컬 watchlist 있을 때만) */}
+      {myStocks.length > 0 && (
+        <section style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "16px 24px" }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 2 }}>⭐ 내 관심종목</span>
+              <Link href="/watchlist" style={{ fontSize: 11, color: C.muted, textDecoration: "none", marginLeft: "auto" }}>전체 보기 →</Link>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {myStocks.map(s => {
+                const up = s.change_pct >= 0;
+                return (
+                  <Link key={s.ticker} href={`/stock/${s.ticker}`} style={{ textDecoration: "none" }}>
+                    <div style={{
+                      padding: "8px 14px", borderRadius: 10, background: C.card,
+                      border: `1px solid ${up ? C.green + "25" : C.red + "20"}`,
+                      display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                      transition: "border-color 0.15s",
+                    }}>
+                      <span style={{ fontSize: 13, fontWeight: 900, fontFamily: "monospace", color: C.text }}>{s.ticker}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: C.text }}>${s.price >= 1000 ? s.price.toLocaleString() : s.price.toFixed(2)}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: up ? C.green : C.red }}>{up ? "▲+" : "▼"}{s.change_pct.toFixed(2)}%</span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>
