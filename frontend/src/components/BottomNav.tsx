@@ -4,17 +4,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const C = {
-  bg: "#07070f", card: "#111120", border: "#1a1a2e",
-  text: "#e8e8f0", muted: "#6b6b80", green: "#00d97e", blue: "#3b82f6",
-  grad: "linear-gradient(135deg,#00d97e 0%,#3b82f6 100%)",
+  bg: "#07070f", border: "#1a1a2e",
+  text: "#e8e8f0", muted: "#6b6b80", green: "#00d97e",
 };
 
 const TABS = [
   { href: "/", icon: "🏠", label: "홈" },
   { href: "/briefings", icon: "📋", label: "브리핑" },
+  { href: "/commands", icon: "⌨️", label: "커맨드" },
   { href: "/portfolio", icon: "📊", label: "포트폴리오" },
   { href: "/watchlist", icon: "⭐", label: "관심" },
-  { href: "https://t.me/goohaejo_bot", icon: "📱", label: "텔레그램", external: true },
 ];
 
 export default function BottomNav() {
@@ -33,39 +32,27 @@ export default function BottomNav() {
   return (
     <nav style={{
       position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 300,
-      background: "rgba(7,7,15,0.96)", backdropFilter: "blur(16px)",
+      background: "rgba(7,7,15,0.97)", backdropFilter: "blur(20px)",
       borderTop: `1px solid ${C.border}`,
-      display: "flex", justifyContent: "space-around", alignItems: "center",
-      height: 62, paddingBottom: "env(safe-area-inset-bottom)",
+      display: "flex", justifyContent: "space-around", alignItems: "stretch",
+      height: 58, paddingBottom: "env(safe-area-inset-bottom,0px)",
     }}>
       {TABS.map(tab => {
-        const isActive = !tab.external && (tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href));
-        const el = (
-          <div style={{
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-            padding: "6px 12px", borderRadius: 12, transition: "all 0.15s",
-            background: isActive ? `${C.green}10` : "transparent",
-            minWidth: 52,
-          }}>
-            <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>
-            <span style={{
-              fontSize: 10, fontWeight: isActive ? 800 : 600,
-              color: isActive ? C.green : C.muted,
-              letterSpacing: 0.3,
-            }}>{tab.label}</span>
-            {isActive && <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.green, marginTop: -2 }} />}
-          </div>
-        );
-        if (tab.external) {
-          return (
-            <a key={tab.href} href={tab.href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-              {el}
-            </a>
-          );
-        }
+        const isActive = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
         return (
-          <Link key={tab.href} href={tab.href} style={{ textDecoration: "none" }}>
-            {el}
+          <Link key={tab.href} href={tab.href} style={{ textDecoration: "none", flex: 1 }}>
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              height: "100%", gap: 2, position: "relative",
+              borderTop: isActive ? `2px solid ${C.green}` : "2px solid transparent",
+              transition: "all 0.15s",
+            }}>
+              <span style={{ fontSize: 19, lineHeight: 1 }}>{tab.icon}</span>
+              <span style={{
+                fontSize: 9, fontWeight: isActive ? 800 : 500,
+                color: isActive ? C.green : C.muted, letterSpacing: 0.2,
+              }}>{tab.label}</span>
+            </div>
           </Link>
         );
       })}
