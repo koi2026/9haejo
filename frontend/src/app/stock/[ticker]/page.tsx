@@ -779,7 +779,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <span style={{ fontSize: 11, color: C.muted, fontFamily: "monospace", letterSpacing: 2 }}>PRICE CHART</span>
                 <div style={{ display: "flex", gap: 6 }}>
-                  {([["1W", 7], ["1M", 30], ["3M", 90]] as [string, number][]).map(([label, days]) => (
+                  {([["1W", 7], ["1M", 30], ["3M", 90], ["1Y", 252]] as [string, number][]).map(([label, days]) => (
                     <button key={days} onClick={() => setChartDays(days)}
                       style={{ padding: "5px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", transition: "all 0.15s",
                         background: chartDays === days ? (data.change_pct >= 0 ? C.green : C.red) : C.surface,

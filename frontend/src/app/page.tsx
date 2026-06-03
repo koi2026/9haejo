@@ -764,8 +764,9 @@ function PWAInstallBanner() {
 }
 
 type SentInfo = { emoji: string; label: string; color: string; group: string };
-function NewsSection({ news, getSentInfo }: { news: { title: string; source: string; sentiment: string; url: string }[]; getSentInfo: (s: string) => SentInfo }) {
+function NewsSection({ news, getSentInfo }: { news: { title: string; source: string; sentiment: string; url: string; summary?: string }[]; getSentInfo: (s: string) => SentInfo }) {
   const [filter, setFilter] = useState<"all" | "positive" | "negative" | "neutral">("all");
+  const [expanded, setExpanded] = useState<number | null>(null);
   const filtered = filter === "all" ? news : news.filter(n => getSentInfo(n.sentiment).group === filter);
   const counts = {
     positive: news.filter(n => getSentInfo(n.sentiment).group === "positive").length,
@@ -779,41 +780,73 @@ function NewsSection({ news, getSentInfo }: { news: { title: string; source: str
     { key: "neutral", label: "😐 중립", color: C.muted, count: counts.neutral },
   ];
   return (
-    <section id="news" style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "60px 24px" }}>
+    <section id="news" style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "48px 24px" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <p style={{ fontSize: 11, color: C.green, fontFamily: "monospace", letterSpacing: 3, marginBottom: 8 }}>WALL STREET NEWS</p>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
           <div>
-            <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 4, color: C.text }}>오늘의 월가 뉴스</h2>
-            <p style={{ color: C.muted, fontSize: 14 }}>Alpha Vantage 뉴스 감성 분석</p>
+            <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 4, color: C.text }}>오늘의 월가 뉴스</h2>
+            <p style={{ color: C.muted, fontSize: 13 }}>AI 감성 분석 · 클릭해서 원문 확인</p>
           </div>
-          {/* Filter tabs */}
-          <div style={{ display: "flex", gap: 6 }}>
-            {filters.map(f => (
-              <button key={f.key} onClick={() => setFilter(f.key)} style={{
-                padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
-                background: filter === f.key ? `${f.color}20` : "transparent",
-                color: filter === f.key ? f.color : C.muted,
-                border: `1px solid ${filter === f.key ? f.color : C.border}`,
-                transition: "all 0.15s",
-              }}>
-                {f.label} {f.count !== undefined && <span style={{ fontSize: 10 }}>({f.count})</span>}
-              </button>
-            ))}
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 4 }}>
+              {filters.map(f => (
+                <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                  padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  background: filter === f.key ? `${f.color}20` : "transparent",
+                  color: filter === f.key ? f.color : C.muted,
+                  border: `1px solid ${filter === f.key ? f.color : C.border}`,
+                  transition: "all 0.15s",
+                }}>
+                  {f.label} {f.count !== undefined && <span style={{ opacity: 0.7 }}>({f.count})</span>}
+                </button>
+              ))}
+            </div>
+            <Link href="/news" style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 700, textDecoration: "none" }}>
+              전체 뉴스 →
+            </Link>
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 480px), 1fr))", gap: 10 }}>
           {filtered.length === 0 ? (
-            <div style={{ color: C.muted, textAlign: "center", padding: 40 }}>해당 카테고리 뉴스가 없습니다.</div>
+            <div style={{ color: C.muted, textAlign: "center", padding: 40, gridColumn: "1/-1" }}>해당 카테고리 뉴스가 없습니다.</div>
           ) : filtered.map((n, i) => {
             const si = getSentInfo(n.sentiment);
+            const isExp = expanded === i;
             return (
-              <a key={i} href={n.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, textDecoration: "none", transition: "border-color 0.15s" }}>
-                <span style={{ fontSize: 18, flexShrink: 0 }}>{si.emoji}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 4, background: `${si.color}20`, color: si.color, whiteSpace: "nowrap", flexShrink: 0 }}>{si.label}</span>
-                <span style={{ fontSize: 13, color: C.text, flex: 1, fontWeight: 500, lineHeight: 1.4 }}>{n.title}</span>
-                <span style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap", flexShrink: 0 }}>{n.source}</span>
-              </a>
+              <div key={i} style={{ borderRadius: 14, background: C.card, border: `1px solid ${C.border}`, overflow: "hidden", transition: "border-color 0.15s" }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = si.color + "40")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}
+              >
+                <a href={n.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", padding: "14px 18px 10px", textDecoration: "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: `${si.color}18`, color: si.color, border: `1px solid ${si.color}30`, whiteSpace: "nowrap" }}>
+                      {si.emoji} {si.label}
+                    </span>
+                    <span style={{ fontSize: 10, color: C.muted }}>{n.source}</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: C.text, fontWeight: 600, lineHeight: 1.5, margin: 0 }}>{n.title}</p>
+                </a>
+                {n.summary && (
+                  <>
+                    <div style={{ padding: "0 18px 10px" }}>
+                      <p style={{
+                        fontSize: 12, color: C.muted, lineHeight: 1.6, margin: 0,
+                        overflow: "hidden", maxHeight: isExp ? "none" : "2.8em",
+                        display: isExp ? "block" : "-webkit-box",
+                        WebkitLineClamp: isExp ? undefined : 2,
+                        WebkitBoxOrient: "vertical" as const,
+                      }}>
+                        {n.summary}
+                      </p>
+                    </div>
+                    <button onClick={() => setExpanded(isExp ? null : i)}
+                      style={{ display: "block", width: "100%", padding: "7px 18px", background: "none", border: "none", borderTop: `1px solid ${C.border}`, cursor: "pointer", fontSize: 11, color: C.muted, textAlign: "left" }}>
+                      {isExp ? "▲ 접기" : "▼ 요약 더 보기"}
+                    </button>
+                  </>
+                )}
+              </div>
             );
           })}
         </div>
@@ -878,7 +911,7 @@ export default function Home() {
   const [briefing, setBriefing] = useState<string[]>([]);
   const [briefingLoading, setBriefingLoading] = useState(true);
   const [subCount, setSubCount] = useState<number | null>(null);
-  const [news, setNews] = useState<{ title: string; source: string; sentiment: string; url: string }[]>([]);
+  const [news, setNews] = useState<{ title: string; source: string; sentiment: string; url: string; summary?: string }[]>([]);
   const [adminStats, setAdminStats] = useState<{ total_price_alerts?: number; total_watchlist_items?: number } | null>(null);
   const [historyDates, setHistoryDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
