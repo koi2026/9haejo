@@ -275,6 +275,7 @@ def register_webhook():
 def startup_scheduler():
     register_webhook()
     register_bot_commands()
+    register_bot_commands()
     from alerts import check_and_fire_alerts
     from apscheduler.triggers.interval import IntervalTrigger
     # KST 08:00 = UTC 23:00
