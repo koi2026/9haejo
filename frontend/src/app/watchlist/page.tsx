@@ -54,9 +54,70 @@ function Sparkline({ prices, color, width = 90, height = 32 }: { prices: number[
 }
 
 /* ── 종목 카드 ── */
+const CHATID_KEY = "9haejo_telegram_chat_id";
+
+function AlertModal({ ticker, price, onClose }: { ticker: string; price: number; onClose: () => void }) {
+  const [target, setTarget] = useState(price.toFixed(2));
+  const [direction, setDirection] = useState<"above" | "below">("above");
+  const [status, setStatus] = useState<"idle" | "ok" | "err">("idle");
+  const [msg, setMsg] = useState("");
+  const chatId = typeof window !== "undefined" ? localStorage.getItem(CHATID_KEY) : null;
+
+  const submit = async () => {
+    if (!chatId) {
+      setStatus("err");
+      setMsg("Chat ID 없음 — /alerts 페이지에서 먼저 연결하세요");
+      return;
+    }
+    try {
+      const r = await fetch(`${API}/alerts/${chatId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker, target: parseFloat(target), direction }),
+      });
+      const d = await r.json();
+      if (d.ok) { setStatus("ok"); setMsg("✅ 알림 설정 완료!"); setTimeout(onClose, 1200); }
+      else { setStatus("err"); setMsg(d.error || "오류"); }
+    } catch { setStatus("err"); setMsg("네트워크 오류"); }
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 500, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+    }} onClick={onClose}>
+      <div style={{
+        background: "#111120", borderRadius: 20, padding: "24px", width: "100%", maxWidth: 340,
+        border: "1px solid #1a1a2e", boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: 16, fontWeight: 900, color: "#e8e8f0", marginBottom: 6 }}>🔔 {ticker} 알림 설정</div>
+        <div style={{ fontSize: 12, color: "#6b6b80", marginBottom: 18 }}>현재가 ${price.toFixed(2)}</div>
+
+        <select value={direction} onChange={e => setDirection(e.target.value as "above" | "below")}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 10, background: "#0d0d1a", border: "1px solid #1a1a2e", color: "#e8e8f0", fontSize: 13, marginBottom: 10 }}>
+          <option value="above">📈 이상 도달 시 (목표가)</option>
+          <option value="below">📉 이하 도달 시 (손절가)</option>
+        </select>
+
+        <input type="number" step="0.01" value={target} onChange={e => setTarget(e.target.value)}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 10, background: "#0d0d1a", border: "1px solid #1a1a2e", color: "#e8e8f0", fontSize: 14, fontFamily: "monospace", marginBottom: 14, boxSizing: "border-box" }} />
+
+        {msg && <div style={{ fontSize: 12, color: status === "ok" ? "#00d97e" : "#ff4466", marginBottom: 10 }}>{msg}</div>}
+        {!chatId && <div style={{ fontSize: 11, color: "#6b6b80", marginBottom: 10 }}>💡 <a href="/alerts" style={{ color: "#3b82f6" }}>Chat ID를 먼저 연결</a>하세요</div>}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", border: "1px solid #1a1a2e", color: "#6b6b80", fontWeight: 700, cursor: "pointer" }}>취소</button>
+          <button onClick={submit} style={{ flex: 2, padding: "10px", borderRadius: 10, background: "linear-gradient(135deg,#00d97e,#3b82f6)", color: "#07070f", fontWeight: 800, border: "none", cursor: "pointer" }}>알림 설정</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StockCard({ item, onRemove, showRemove }: { item: StockItem; onRemove?: () => void; showRemove?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const [priceFlash, setPriceFlash] = useState<"up" | "down" | null>(null);
+  const [showAlertModal, setShowAlertModal] = useState(false);
   const up = item.change_pct >= 0;
   const color = up ? C.green : C.red;
 
@@ -142,7 +203,7 @@ function StockCard({ item, onRemove, showRemove }: { item: StockItem; onRemove?:
           </div>
         </div>
 
-        {/* Bottom: 분석 chip */}
+        {/* Bottom: 분석 chip + 알림 버튼 */}
         <div style={{ marginTop: 10, display: "flex", gap: 6, alignItems: "center" }}>
           <span style={{
             fontSize: 10, padding: "3px 8px", borderRadius: 6,
@@ -151,9 +212,19 @@ function StockCard({ item, onRemove, showRemove }: { item: StockItem; onRemove?:
             {up ? "📈" : "📉"} {up ? "상승중" : "하락중"}
           </span>
           <span style={{ fontSize: 10, color: C.muted }}>AI 분석 →</span>
+          <button
+            onClick={e => { e.preventDefault(); e.stopPropagation(); setShowAlertModal(true); }}
+            style={{
+              marginLeft: "auto", fontSize: 10, padding: "3px 8px", borderRadius: 6,
+              background: `${C.amber}15`, color: C.amber, fontWeight: 700,
+              border: `1px solid ${C.amber}30`, cursor: "pointer",
+              opacity: hovered ? 1 : 0.5, transition: "opacity 0.15s",
+            }}
+          >🔔 알림</button>
         </div>
       </div>
     </Link>
+    {showAlertModal && <AlertModal ticker={item.ticker} price={item.price} onClose={() => setShowAlertModal(false)} />}
   );
 }
 

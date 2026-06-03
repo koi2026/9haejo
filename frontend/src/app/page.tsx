@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import NavSearch from "@/components/NavSearch";
+import TickerBanner from "@/components/TickerBanner";
 
 const API = "https://outstanding-upliftment-production-5b02.up.railway.app";
 
@@ -1267,6 +1268,7 @@ export default function Home() {
             <Link href="/watchlist" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>⭐ 관심종목</Link>
             <Link href="/portfolio" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.green}40`, color: C.green, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>📊 포트폴리오</Link>
             <Link href="/alerts" style={{ padding: "6px 10px", borderRadius: 8, background: `${C.amber}12`, border: `1px solid ${C.amber}40`, color: C.amber, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>🔔 알림</Link>
+            <Link href="/screener" style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>🔍 스크리너</Link>
             <NavSearch />
             <button onClick={toggleLang} style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, fontFamily: "monospace", cursor: "pointer" }}>{T.langToggle}</button>
             <button onClick={toggleTheme} style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, cursor: "pointer" }}>{isDark ? "☀️" : "🌙"}</button>
