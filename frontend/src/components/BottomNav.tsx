@@ -12,8 +12,8 @@ const TABS = [
   { href: "/", icon: "🏠", label: "홈" },
   { href: "/briefings", icon: "📋", label: "브리핑" },
   { href: "/chat", icon: "🤖", label: "AI챗" },
-  { href: "/portfolio", icon: "📊", label: "포트폴리오" },
   { href: "/watchlist", icon: "⭐", label: "관심" },
+  { href: "/alerts", icon: "🔔", label: "알림" },
 ];
 
 export default function BottomNav() {

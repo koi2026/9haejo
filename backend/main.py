@@ -1507,6 +1507,58 @@ def get_alerts_web(chat_id: str):
     return {"chat_id": chat_id, "alerts": result_alerts, "found": True, "count": len(result_alerts)}
 
 
+@app.post("/alerts/{chat_id}")
+def add_alert_web(chat_id: str, body: dict):
+    """웹에서 가격 알림 추가 (텔레그램 chat_id 기반)"""
+    from alerts import _load as _load_alerts, _save as _save_alerts
+    ticker = (body.get("ticker") or "").strip().upper()
+    target = body.get("target")
+    direction = body.get("direction", "above")  # "above" | "below"
+    if not ticker or target is None:
+        return {"ok": False, "error": "ticker와 target이 필요합니다"}
+    try:
+        target = float(target)
+    except Exception:
+        return {"ok": False, "error": "target은 숫자여야 합니다"}
+    if direction not in ("above", "below"):
+        direction = "above"
+
+    all_alerts = _load_alerts()
+    user_alerts = all_alerts.get(str(chat_id), [])
+    # 중복 체크
+    for a in user_alerts:
+        if a.get("ticker") == ticker and abs(a.get("target", 0) - target) < 0.01:
+            return {"ok": False, "error": "동일한 알림이 이미 존재합니다"}
+    # 최대 10개 제한
+    if len(user_alerts) >= 10:
+        return {"ok": False, "error": "알림은 최대 10개까지 설정할 수 있습니다"}
+    user_alerts.append({"ticker": ticker, "target": target, "direction": direction, "active": True})
+    all_alerts[str(chat_id)] = user_alerts
+    _save_alerts(all_alerts)
+    return {"ok": True, "count": len(user_alerts)}
+
+
+@app.delete("/alerts/{chat_id}")
+def delete_alert_web(chat_id: str, body: dict):
+    """웹에서 가격 알림 삭제"""
+    from alerts import _load as _load_alerts, _save as _save_alerts
+    ticker = (body.get("ticker") or "").strip().upper()
+    target = body.get("target")
+    if not ticker or target is None:
+        return {"ok": False, "error": "ticker와 target이 필요합니다"}
+    try:
+        target = float(target)
+    except Exception:
+        return {"ok": False, "error": "잘못된 target 값"}
+    all_alerts = _load_alerts()
+    user_alerts = all_alerts.get(str(chat_id), [])
+    before = len(user_alerts)
+    user_alerts = [a for a in user_alerts if not (a.get("ticker") == ticker and abs(a.get("target", 0) - target) < 0.01)]
+    all_alerts[str(chat_id)] = user_alerts
+    _save_alerts(all_alerts)
+    return {"ok": True, "deleted": before - len(user_alerts)}
+
+
 @app.get("/watchlist/{chat_id}")
 def get_watchlist_web(chat_id: str):
     """웹용 관심종목 조회 (텔레그램 chat_id 기반, 실시간 시세 포함)"""
